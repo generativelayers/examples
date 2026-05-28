@@ -7,7 +7,7 @@
  * before deciding to accept or reject.
  */
 agent Generator {
-    module layer.adapters.astra.ResourceModule layer;
+    module generativelayers.adapters.astra.ResourceModule gl;
     module Console console;
 
     types generator_types {
@@ -23,22 +23,22 @@ agent Generator {
         console.println("[Generator] Starting candidate generation...");
 
         // Step 1 — Invoke the generative resource
-        string resultId = layer.invoke(
+        string resultId = gl.invoke(
             "generator", "classify_food", "llm.answer", "ANSWER",
             "Classify 'mango' as a food type. Return label and confidence.",
             "label,confidence"
         );
 
         console.println("[Generator] resultId  = " + resultId);
-        console.println("[Generator] outcome   = " + layer.outcome(resultId));
-        console.println("[Generator] valid     = " + layer.valid(resultId));
+        console.println("[Generator] outcome   = " + gl.outcome(resultId));
+        console.println("[Generator] valid     = " + gl.valid(resultId));
 
-        string candidateId = layer.candidate(resultId);
-        boolean isValid = layer.valid(resultId);
+        string candidateId = gl.candidate(resultId);
+        boolean isValid = gl.valid(resultId);
 
         if (isValid) {
-            string label      = layer.field(resultId, "label");
-            string confidence  = layer.field(resultId, "confidence");
+            string label      = gl.field(resultId, "label");
+            string confidence  = gl.field(resultId, "confidence");
 
             console.println("[Generator] Candidate valid. Requesting assessment...");
             console.println("[Generator]   label      = " + label);
@@ -51,7 +51,7 @@ agent Generator {
             console.println("[Generator] Waiting for assessor verdict...");
         } else {
             // Invalid — reject immediately, no need for assessment
-            layer.reject(candidateId);
+            gl.reject(candidateId);
             +candidate_rejected(candidateId);
             console.println("[Generator] Candidate invalid. REJECTED immediately.");
         }
@@ -66,7 +66,7 @@ agent Generator {
         console.println("[Generator]   reason: " + explanation);
 
         // Agent decides to accept based on peer endorsement
-        layer.accept(candidateId);
+        gl.accept(candidateId);
         +candidate_accepted(candidateId);
         +assessment_received(candidateId, "ENDORSED");
 
@@ -82,7 +82,7 @@ agent Generator {
         console.println("[Generator]   reason: " + explanation);
 
         // Agent decides to reject based on peer contest
-        layer.reject(candidateId);
+        gl.reject(candidateId);
         +candidate_rejected(candidateId);
         +assessment_received(candidateId, "CONTESTED");
 

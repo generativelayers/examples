@@ -2,7 +2,7 @@
  * Main — Entry point for the Two-Agent Assessment demo.
  *
  * Creates the Generator and Assessor agents.
- * The Generator invokes the layer, the Assessor peer-reviews,
+ * The Generator invokes the generative layer, the Assessor peer-reviews,
  * and the Generator makes the final adoption decision.
  *
  * Demonstrates:

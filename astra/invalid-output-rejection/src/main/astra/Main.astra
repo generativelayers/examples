@@ -12,10 +12,10 @@
  * Invalid output never reaches the agent's belief base.
  */
 agent Main {
-    module layer.adapters.astra.ResourceModule layer;
+    module generativelayers.adapters.astra.ResourceModule gl;
     module Console console;
 
-    types layer_types {
+    types gl_types {
         formula candidate_accepted(string);
         formula candidate_rejected(string, string);
         formula attempt(int);
@@ -48,27 +48,27 @@ agent Main {
     }
 
     rule +!tryClassify(string prompt, string requiredCsv, int attemptNum) {
-        console.println("[ATTEMPT " + attemptNum + "] Invoking layer...");
+        console.println("[ATTEMPT " + attemptNum + "] Invoking gl...");
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
 
-        string resultId = layer.invoke(
+        string resultId = gl.invoke(
             "agent_a", "classify_food", "llm.answer", "ANSWER",
             prompt, requiredCsv
         );
 
-        string outcome = layer.outcome(resultId);
+        string outcome = gl.outcome(resultId);
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
-        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + layer.valid(resultId));
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + gl.valid(resultId));
 
-        string candidateId = layer.candidate(resultId);
-        boolean isValid = layer.valid(resultId);
+        string candidateId = gl.candidate(resultId);
+        boolean isValid = gl.valid(resultId);
 
         if (isValid) {
             // Valid — extract fields and accept
-            string label      = layer.field(resultId, "label");
-            string confidence  = layer.field(resultId, "confidence");
+            string label      = gl.field(resultId, "label");
+            string confidence  = gl.field(resultId, "confidence");
 
-            layer.accept(candidateId);
+            gl.accept(candidateId);
             +candidate_accepted(candidateId);
             +classification(label, confidence, "attempt_" + attemptNum);
 
@@ -77,7 +77,7 @@ agent Main {
             console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
         } else {
             // Invalid — reject, log reason, do NOT adopt anything
-            layer.reject(candidateId);
+            gl.reject(candidateId);
             +candidate_rejected(candidateId, outcome);
 
             console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
