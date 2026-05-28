@@ -1,0 +1,10 @@
+/* Jason Project — Single Agent Candidate
+ *
+ * Generative Layer demonstration using Jason.
+ * Mirrors the ASTRA single-agent-candidate example
+ * with identical framework commands.
+ */
+
+MAS single_agent_candidate {
+    agents: main;
+}

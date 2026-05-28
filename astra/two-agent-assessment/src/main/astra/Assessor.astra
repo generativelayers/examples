@@ -9,7 +9,7 @@
  * the final adoption decision (agent autonomy preserved).
  */
 agent Assessor {
-    module gl.adapters.astra.ResourceModule gl;
+    module gl.adapters.astra.Adapter gl;
     module Console console;
 
     types assessor_types {

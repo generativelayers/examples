@@ -7,7 +7,7 @@
  * before deciding to accept or reject.
  */
 agent Generator {
-    module gl.adapters.astra.ResourceModule gl;
+    module gl.adapters.astra.Adapter gl;
     module Console console;
 
     types generator_types {

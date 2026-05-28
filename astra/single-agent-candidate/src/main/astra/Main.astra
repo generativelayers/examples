@@ -9,7 +9,7 @@
  * without explicit agent action.
  */
 agent Main {
-    module gl.adapters.astra.ResourceModule gl;
+    module gl.adapters.astra.Adapter gl;
     module Console console;
 
     types gl_types {
