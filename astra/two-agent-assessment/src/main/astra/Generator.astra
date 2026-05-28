@@ -1,0 +1,91 @@
+/**
+ * Generator Agent — produces a candidate via GRL invocation.
+ *
+ * After generating and validating, the Generator sends
+ * the candidateId and resultId to the Assessor agent via
+ * FIPA ACL messages, then waits for an assessment verdict
+ * before deciding to accept or reject.
+ */
+agent Generator {
+    module grl.adapters.astra.Module grl;
+    module Console console;
+
+    types generator_types {
+        formula candidate_accepted(string);
+        formula candidate_rejected(string);
+        formula assessment_received(string, string);
+        formula classification(string, string);
+        formula review_request(string, string, string, string);
+        formula verdict(string, string, string);
+    }
+
+    rule +!main(list args) {
+        console.println("[Generator] Starting candidate generation...");
+
+        // Step 1 — Invoke the generative resource
+        string resultId = grl.invoke(
+            "generator", "classify_food", "llm.answer", "ANSWER",
+            "Classify 'mango' as a food type. Return label and confidence.",
+            "label,confidence"
+        );
+
+        console.println("[Generator] resultId  = " + resultId);
+        console.println("[Generator] outcome   = " + grl.outcome(resultId));
+        console.println("[Generator] valid     = " + grl.valid(resultId));
+
+        string candidateId = grl.candidate(resultId);
+        boolean isValid = grl.valid(resultId);
+
+        if (isValid) {
+            string label      = grl.field(resultId, "label");
+            string confidence  = grl.field(resultId, "confidence");
+
+            console.println("[Generator] Candidate valid. Requesting assessment...");
+            console.println("[Generator]   label      = " + label);
+            console.println("[Generator]   confidence = " + confidence);
+
+            // Step 2 — Send candidate to Assessor for peer review
+            send(request, "assessor", review_request(candidateId, resultId, label, confidence));
+
+            // Step 3 — Wait for assessment verdict
+            console.println("[Generator] Waiting for assessor verdict...");
+        } else {
+            // Invalid — reject immediately, no need for assessment
+            grl.reject(candidateId);
+            +candidate_rejected(candidateId);
+            console.println("[Generator] Candidate invalid. REJECTED immediately.");
+        }
+    }
+
+    // Step 4 — Handle assessment response: ENDORSED
+    rule @message(inform, string sender,
+                  verdict(string candidateId, string decision, string explanation)) :
+        decision == "ENDORSED" {
+
+        console.println("[Generator] Assessment from " + sender + ": ENDORSED");
+        console.println("[Generator]   reason: " + explanation);
+
+        // Agent decides to accept based on peer endorsement
+        grl.accept(candidateId);
+        +candidate_accepted(candidateId);
+        +assessment_received(candidateId, "ENDORSED");
+
+        console.println("[Generator] Candidate ACCEPTED after peer assessment.");
+    }
+
+    // Step 4 — Handle assessment response: CONTESTED
+    rule @message(inform, string sender,
+                  verdict(string candidateId, string decision, string explanation)) :
+        decision == "CONTESTED" {
+
+        console.println("[Generator] Assessment from " + sender + ": CONTESTED");
+        console.println("[Generator]   reason: " + explanation);
+
+        // Agent decides to reject based on peer contest
+        grl.reject(candidateId);
+        +candidate_rejected(candidateId);
+        +assessment_received(candidateId, "CONTESTED");
+
+        console.println("[Generator] Candidate REJECTED after peer assessment.");
+    }
+}

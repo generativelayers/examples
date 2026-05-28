@@ -1,0 +1,95 @@
+/**
+ * Single Agent Candidate — GRL demonstration.
+ *
+ * Shows the fundamental GRL flow:
+ *   configure → useProvider → invoke → validate → accept/reject
+ *
+ * The agent chooses its own provider and model, then asks the GRL
+ * to classify a food item. No generated output enters beliefs
+ * without explicit agent action.
+ */
+agent Main {
+    module grl.adapters.astra.Module grl;
+    module Console console;
+
+    types grl_types {
+        formula candidate_accepted(string);
+        formula candidate_rejected(string);
+        formula classification(string, string);
+    }
+
+    rule +!main(list args) {
+        console.println("=== GRL Single Agent Candidate Demo ===");
+        console.println("");
+
+        // Step 0 — List available providers
+        console.println("[GRL] Available providers: " + grl.providers());
+
+        // Step 1 — Configure the provider (agent chooses!)
+        // Options: grl.useProvider("gemini");
+        //          grl.useProvider("gemini", "gemini-2.5-flash");
+        //          grl.useProvider("openai", "gpt-4o-mini");
+        //          grl.useProvider("fake");
+        //
+        // Or fine-grained:
+        //   grl.configure("provider", "gemini");
+        //   grl.configure("model", "gemini-2.5-flash");
+        //   grl.configure("temperature", "0.1");
+        //   grl.useProvider();
+        //
+        // Default: fake provider for offline testing.
+        // Switch to "gemini" when GEMINI_API_KEY is exported.
+        grl.useProvider("gemini");
+
+        // Step 2 — Invoke the generative resource
+        string resultId = grl.invoke(
+            "agent_a",                  // agentId
+            "classify_food",            // goalId
+            "llm.answer",              // bodyId (generative body)
+            "ANSWER",                  // affordance type
+            "Classify the food item 'apple'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
+            "label,confidence"         // required fields for validation
+        );
+
+        console.println("[GRL] resultId  = " + resultId);
+        console.println("[GRL] outcome   = " + grl.outcome(resultId));
+        boolean isValid = grl.valid(resultId);
+        console.println("[GRL] valid     = " + isValid);
+
+        // Step 3 — Get the candidate handle
+        string candidateId = grl.candidate(resultId);
+        console.println("[GRL] candidate = " + candidateId);
+
+        // Step 4 — Agent deliberation: inspect, then accept or reject
+        boolean isAdmissible = grl.admissible(candidateId);
+
+        if (isValid & isAdmissible) {
+            string label      = grl.field(resultId, "label");
+            string confidence  = grl.field(resultId, "confidence");
+
+            console.println("");
+            console.println("[AGENT] Candidate is valid and admissible.");
+            console.println("[AGENT]   label      = " + label);
+            console.println("[AGENT]   confidence = " + confidence);
+
+            grl.accept(candidateId);
+            +candidate_accepted(candidateId);
+            +classification(label, confidence);
+
+            console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
+        } else {
+            grl.reject(candidateId);
+            +candidate_rejected(candidateId);
+
+            console.println("");
+            console.println("[AGENT] Candidate REJECTED.");
+            console.println("[AGENT]   outcome = " + grl.outcome(resultId));
+        }
+
+        // Step 5 — Trace for auditability
+        string traceId = grl.trace(resultId);
+        console.println("");
+        console.println("[TRACE] traceId = " + traceId);
+        console.println("=== Demo Complete ===");
+    }
+}

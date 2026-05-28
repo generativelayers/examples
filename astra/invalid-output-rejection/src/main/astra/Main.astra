@@ -1,0 +1,90 @@
+/**
+ * Invalid Output Rejection — GRL demonstration.
+ *
+ * Shows how the GRL framework handles invalid/malformed
+ * generative output. The agent:
+ *   1. Requests structured output with required fields
+ *   2. Receives a result that fails validation (missing fields)
+ *   3. Rejects the candidate — no belief pollution occurs
+ *   4. Retries with a corrective prompt
+ *
+ * Key thesis point: fail-closed by default.
+ * Invalid output never reaches the agent's belief base.
+ */
+agent Main {
+    module grl.adapters.astra.Module grl;
+    module Console console;
+
+    types grl_types {
+        formula candidate_accepted(string);
+        formula candidate_rejected(string, string);
+        formula attempt(int);
+        formula classification(string, string, string);
+    }
+
+    initial attempt(0);
+
+    rule +!main(list args) {
+        console.println("=== GRL Invalid Output Rejection Demo ===");
+        console.println("");
+
+        // Attempt 1 — invoke with strict required fields
+        // The fake provider may return output missing some fields
+        !tryClassify(
+            "Classify 'banana' as food. Return label, confidence, and category.",
+            "label,confidence,category",
+            1
+        );
+
+        // Attempt 2 — invoke with relaxed required fields
+        !tryClassify(
+            "Classify 'banana' as food. Return label and confidence.",
+            "label,confidence",
+            2
+        );
+
+        console.println("");
+        console.println("=== Demo Complete ===");
+    }
+
+    rule +!tryClassify(string prompt, string requiredCsv, int attemptNum) {
+        console.println("[ATTEMPT " + attemptNum + "] Invoking GRL...");
+        console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
+
+        string resultId = grl.invoke(
+            "agent_a", "classify_food", "llm.answer", "ANSWER",
+            prompt, requiredCsv
+        );
+
+        string outcome = grl.outcome(resultId);
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + grl.valid(resultId));
+
+        string candidateId = grl.candidate(resultId);
+        boolean isValid = grl.valid(resultId);
+
+        if (isValid) {
+            // Valid — extract fields and accept
+            string label      = grl.field(resultId, "label");
+            string confidence  = grl.field(resultId, "confidence");
+
+            grl.accept(candidateId);
+            +candidate_accepted(candidateId);
+            +classification(label, confidence, "attempt_" + attemptNum);
+
+            console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
+            console.println("[ATTEMPT " + attemptNum + "]     label      = " + label);
+            console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
+        } else {
+            // Invalid — reject, log reason, do NOT adopt anything
+            grl.reject(candidateId);
+            +candidate_rejected(candidateId, outcome);
+
+            console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
+            console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
+        }
+
+        -+attempt(attemptNum);
+        console.println("");
+    }
+}

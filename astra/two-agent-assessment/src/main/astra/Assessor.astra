@@ -1,0 +1,67 @@
+/**
+ * Assessor Agent — peer-reviews a candidate from the Generator.
+ *
+ * Receives a candidate via FIPA ACL request, uses the GRL module
+ * to record a formal assessment, then sends the verdict back.
+ *
+ * The Assessor does NOT adopt or reject the candidate itself —
+ * it only provides an assessment. The Generator agent makes
+ * the final adoption decision (agent autonomy preserved).
+ */
+agent Assessor {
+    module grl.adapters.astra.Module grl;
+    module Console console;
+
+    types assessor_types {
+        formula assessment_recorded(string, string);
+        formula review_request(string, string, string, string);
+        formula verdict(string, string, string);
+    }
+
+    // Handle incoming assessment request from Generator
+    rule @message(request, string sender,
+                  review_request(string candidateId, string resultId,
+                         string label, string confidence)) {
+
+        console.println("[Assessor] Received assessment request from " + sender);
+        console.println("[Assessor]   candidateId = " + candidateId);
+        console.println("[Assessor]   label       = " + label);
+        console.println("[Assessor]   confidence  = " + confidence);
+
+        // Assessor deliberation — inspect the candidate
+        // In a real system, the assessor would apply domain-specific
+        // criteria. Here we demonstrate the GRL assessment API.
+        !evaluateCandidate(sender, candidateId, resultId, label, confidence);
+    }
+
+    rule +!evaluateCandidate(string sender, string candidateId,
+                             string resultId, string label,
+                             string confidence) {
+
+        boolean isValid = grl.valid(resultId);
+
+        if (isValid) {
+            console.println("[Assessor] Result is valid. Recording ENDORSED assessment.");
+
+            // Record formal assessment in the GRL kernel
+            grl.assess("assessor", candidateId, "ENDORSED", 0.85,
+                       "Candidate produced valid structured output with required fields.");
+            +assessment_recorded(candidateId, "ENDORSED");
+
+            // Send verdict back to the Generator
+            send(inform, sender, verdict(candidateId, "ENDORSED",
+                 "Valid output with label and confidence fields present."));
+        } else {
+            console.println("[Assessor] Result is NOT valid. Recording CONTESTED assessment.");
+
+            // Record formal assessment — contested
+            grl.assess("assessor", candidateId, "CONTESTED", 0.90,
+                       "Candidate failed validation; output does not meet quality criteria.");
+            +assessment_recorded(candidateId, "CONTESTED");
+
+            // Send verdict back to the Generator
+            send(inform, sender, verdict(candidateId, "CONTESTED",
+                 "Output failed validation criteria."));
+        }
+    }
+}
