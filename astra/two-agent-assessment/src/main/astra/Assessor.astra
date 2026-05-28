@@ -1,7 +1,7 @@
 /**
  * Assessor Agent — peer-reviews a candidate from the Generator.
  *
- * Receives a candidate via FIPA ACL request, uses the GRL module
+ * Receives a candidate via FIPA ACL request, uses the Generative Layer module
  * to record a formal assessment, then sends the verdict back.
  *
  * The Assessor does NOT adopt or reject the candidate itself —
@@ -9,7 +9,7 @@
  * the final adoption decision (agent autonomy preserved).
  */
 agent Assessor {
-    module grl.adapters.astra.GRLModule grl;
+    module layer.adapters.astra.ResourceModule layer;
     module Console console;
 
     types assessor_types {
@@ -30,7 +30,7 @@ agent Assessor {
 
         // Assessor deliberation — inspect the candidate
         // In a real system, the assessor would apply domain-specific
-        // criteria. Here we demonstrate the GRL assessment API.
+        // criteria. Here we demonstrate the Generative Layer assessment API.
         !evaluateCandidate(sender, candidateId, resultId, label, confidence);
     }
 
@@ -38,13 +38,13 @@ agent Assessor {
                              string resultId, string label,
                              string confidence) {
 
-        boolean isValid = grl.valid(resultId);
+        boolean isValid = layer.valid(resultId);
 
         if (isValid) {
             console.println("[Assessor] Result is valid. Recording ENDORSED assessment.");
 
-            // Record formal assessment in the GRL kernel
-            grl.assess("assessor", candidateId, "ENDORSED", 0.85,
+            // Record formal assessment in the Generative Layer kernel
+            layer.assess("assessor", candidateId, "ENDORSED", 0.85,
                        "Candidate produced valid structured output with required fields.");
             +assessment_recorded(candidateId, "ENDORSED");
 
@@ -55,7 +55,7 @@ agent Assessor {
             console.println("[Assessor] Result is NOT valid. Recording CONTESTED assessment.");
 
             // Record formal assessment — contested
-            grl.assess("assessor", candidateId, "CONTESTED", 0.90,
+            layer.assess("assessor", candidateId, "CONTESTED", 0.90,
                        "Candidate failed validation; output does not meet quality criteria.");
             +assessment_recorded(candidateId, "CONTESTED");
 

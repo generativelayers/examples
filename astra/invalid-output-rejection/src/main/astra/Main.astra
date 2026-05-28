@@ -1,7 +1,7 @@
 /**
- * Invalid Output Rejection — GRL demonstration.
+ * Invalid Output Rejection — Generative Layer demonstration.
  *
- * Shows how the GRL framework handles invalid/malformed
+ * Shows how the Generative Layer framework handles invalid/malformed
  * generative output. The agent:
  *   1. Requests structured output with required fields
  *   2. Receives a result that fails validation (missing fields)
@@ -12,10 +12,10 @@
  * Invalid output never reaches the agent's belief base.
  */
 agent Main {
-    module grl.adapters.astra.GRLModule grl;
+    module layer.adapters.astra.ResourceModule layer;
     module Console console;
 
-    types grl_types {
+    types layer_types {
         formula candidate_accepted(string);
         formula candidate_rejected(string, string);
         formula attempt(int);
@@ -25,7 +25,7 @@ agent Main {
     initial attempt(0);
 
     rule +!main(list args) {
-        console.println("=== GRL Invalid Output Rejection Demo ===");
+        console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
 
         // Attempt 1 — invoke with strict required fields
@@ -48,27 +48,27 @@ agent Main {
     }
 
     rule +!tryClassify(string prompt, string requiredCsv, int attemptNum) {
-        console.println("[ATTEMPT " + attemptNum + "] Invoking GRL...");
+        console.println("[ATTEMPT " + attemptNum + "] Invoking layer...");
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
 
-        string resultId = grl.invoke(
+        string resultId = layer.invoke(
             "agent_a", "classify_food", "llm.answer", "ANSWER",
             prompt, requiredCsv
         );
 
-        string outcome = grl.outcome(resultId);
+        string outcome = layer.outcome(resultId);
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
-        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + grl.valid(resultId));
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + layer.valid(resultId));
 
-        string candidateId = grl.candidate(resultId);
-        boolean isValid = grl.valid(resultId);
+        string candidateId = layer.candidate(resultId);
+        boolean isValid = layer.valid(resultId);
 
         if (isValid) {
             // Valid — extract fields and accept
-            string label      = grl.field(resultId, "label");
-            string confidence  = grl.field(resultId, "confidence");
+            string label      = layer.field(resultId, "label");
+            string confidence  = layer.field(resultId, "confidence");
 
-            grl.accept(candidateId);
+            layer.accept(candidateId);
             +candidate_accepted(candidateId);
             +classification(label, confidence, "attempt_" + attemptNum);
 
@@ -77,7 +77,7 @@ agent Main {
             console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
         } else {
             // Invalid — reject, log reason, do NOT adopt anything
-            grl.reject(candidateId);
+            layer.reject(candidateId);
             +candidate_rejected(candidateId, outcome);
 
             console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);

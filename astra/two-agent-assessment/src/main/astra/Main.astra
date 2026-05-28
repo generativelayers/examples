@@ -2,12 +2,12 @@
  * Main — Entry point for the Two-Agent Assessment demo.
  *
  * Creates the Generator and Assessor agents.
- * The Generator invokes GRL, the Assessor peer-reviews,
+ * The Generator invokes the layer, the Assessor peer-reviews,
  * and the Generator makes the final adoption decision.
  *
  * Demonstrates:
  *   - Inter-agent assessment via FIPA ACL messages
- *   - Assessment as a first-class GRL artifact
+ *   - Assessment as a first-class Generative Layer artifact
  *   - Agent autonomy — the Generator decides, not the LLM or the Assessor
  *   - Full traceability of the candidate lifecycle
  */
@@ -16,14 +16,14 @@ agent Main {
     module System S;
 
     rule +!main(list args) {
-        console.println("=== GRL Two-Agent Assessment Demo ===");
+        console.println("=== Generative Layer Two-Agent Assessment Demo ===");
         console.println("");
 
         // Create the assessor agent first so it's ready to receive
         S.createAgent("assessor", "Assessor");
         console.println("[Main] Assessor agent created.");
 
-        // Create the generator agent — it will invoke GRL and contact the assessor
+        // Create the generator agent — it will invoke Generative Layer and contact the assessor
         S.createAgent("generator", "Generator");
         console.println("[Main] Generator agent created.");
 
