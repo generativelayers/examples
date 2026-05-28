@@ -28,6 +28,8 @@ agent Main {
         console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
 
+        gl.use_provider("gemini");
+
         // Attempt 1 — invoke with strict required fields
         // The fake provider may return output missing some fields
         !tryClassify(

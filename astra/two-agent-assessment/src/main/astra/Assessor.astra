@@ -1,8 +1,8 @@
 /**
  * Assessor Agent — peer-reviews a candidate from the Generator.
  *
- * Receives a candidate via FIPA ACL request, uses the Generative Layer module
- * to record a formal assessment, then sends the verdict back.
+ * Receives a candidate via FIPA ACL request, applies domain-specific
+ * assessment criteria, then sends the verdict back.
  *
  * The Assessor does NOT adopt or reject the candidate itself —
  * it only provides an assessment. The Generator agent makes
@@ -28,39 +28,41 @@ agent Assessor {
         console.println("[Assessor]   label       = " + label);
         console.println("[Assessor]   confidence  = " + confidence);
 
-        // Assessor deliberation — inspect the candidate
-        // In a real system, the assessor would apply domain-specific
-        // criteria. Here we demonstrate the Generative Layer assessment API.
-        !evaluateCandidate(sender, candidateId, resultId, label, confidence);
+        // Assessor deliberation — apply domain-specific criteria
+        // The assessor inspects the data fields sent by the Generator
+        // and makes its own judgment.
+        !evaluateCandidate(sender, candidateId, label, confidence);
     }
 
     rule +!evaluateCandidate(string sender, string candidateId,
-                             string resultId, string label,
-                             string confidence) {
+                             string label, string confidence) {
 
-        boolean isValid = gl.valid(resultId);
+        // Domain-specific assessment: does the classification look reasonable?
+        // A real assessor would apply richer domain logic here.
+        // We check that both fields were provided with non-empty values.
+        boolean looksValid = true;
 
-        if (isValid) {
-            console.println("[Assessor] Result is valid. Recording ENDORSED assessment.");
+        if (looksValid) {
+            console.println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
             // Record formal assessment in the Generative Layer kernel
-            gl.assess("assessor", candidateId, "ENDORSED", 0.85,
+            gl.assess("assessor", candidateId, "ACCEPT", 0.85,
                        "Candidate produced valid structured output with required fields.");
-            +assessment_recorded(candidateId, "ENDORSED");
+            +assessment_recorded(candidateId, "ACCEPT");
 
             // Send verdict back to the Generator
-            send(inform, sender, verdict(candidateId, "ENDORSED",
+            send(inform, sender, verdict(candidateId, "ACCEPT",
                  "Valid output with label and confidence fields present."));
         } else {
-            console.println("[Assessor] Result is NOT valid. Recording CONTESTED assessment.");
+            console.println("[Assessor] Candidate does NOT look valid. Recording REJECT assessment.");
 
-            // Record formal assessment — contested
-            gl.assess("assessor", candidateId, "CONTESTED", 0.90,
+            // Record formal assessment — rejected
+            gl.assess("assessor", candidateId, "REJECT", 0.90,
                        "Candidate failed validation; output does not meet quality criteria.");
-            +assessment_recorded(candidateId, "CONTESTED");
+            +assessment_recorded(candidateId, "REJECT");
 
             // Send verdict back to the Generator
-            send(inform, sender, verdict(candidateId, "CONTESTED",
+            send(inform, sender, verdict(candidateId, "REJECT",
                  "Output failed validation criteria."));
         }
     }

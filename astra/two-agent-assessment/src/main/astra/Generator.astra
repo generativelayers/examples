@@ -19,8 +19,12 @@ agent Generator {
         formula verdict(string, string, string);
     }
 
-    rule +!main(list args) {
+    initial !start();
+
+    rule +!start() {
         console.println("[Generator] Starting candidate generation...");
+
+        gl.use_provider("gemini");
 
         // Step 1 — Invoke the generative resource
         string resultId = gl.invoke(
@@ -57,34 +61,34 @@ agent Generator {
         }
     }
 
-    // Step 4 — Handle assessment response: ENDORSED
+    // Step 4 — Handle assessment response: ACCEPT
     rule @message(inform, string sender,
                   verdict(string candidateId, string decision, string explanation)) :
-        decision == "ENDORSED" {
+        decision == "ACCEPT" {
 
-        console.println("[Generator] Assessment from " + sender + ": ENDORSED");
+        console.println("[Generator] Assessment from " + sender + ": ACCEPT");
         console.println("[Generator]   reason: " + explanation);
 
         // Agent decides to accept based on peer endorsement
         gl.accept(candidateId);
         +candidate_accepted(candidateId);
-        +assessment_received(candidateId, "ENDORSED");
+        +assessment_received(candidateId, "ACCEPT");
 
         console.println("[Generator] Candidate ACCEPTED after peer assessment.");
     }
 
-    // Step 4 — Handle assessment response: CONTESTED
+    // Step 4 — Handle assessment response: REJECT
     rule @message(inform, string sender,
                   verdict(string candidateId, string decision, string explanation)) :
-        decision == "CONTESTED" {
+        decision == "REJECT" {
 
-        console.println("[Generator] Assessment from " + sender + ": CONTESTED");
+        console.println("[Generator] Assessment from " + sender + ": REJECT");
         console.println("[Generator]   reason: " + explanation);
 
         // Agent decides to reject based on peer contest
         gl.reject(candidateId);
         +candidate_rejected(candidateId);
-        +assessment_received(candidateId, "CONTESTED");
+        +assessment_received(candidateId, "REJECT");
 
         console.println("[Generator] Candidate REJECTED after peer assessment.");
     }
