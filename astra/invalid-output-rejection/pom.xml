@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>generativelayers</groupId>
+    <groupId>gl</groupId>
     <artifactId>invalid-output-rejection</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
@@ -27,7 +27,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>generativelayers</groupId>
+            <groupId>gl</groupId>
             <artifactId>core</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>

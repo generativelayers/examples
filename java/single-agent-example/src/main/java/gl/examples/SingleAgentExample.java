@@ -1,6 +1,6 @@
-package generativelayers.examples;
+package gl.examples;
 
-import generativelayers.adapters.DirectAdapter;
+import gl.adapters.DirectAdapter;
 
 public final class SingleAgentExample {
     private SingleAgentExample() {}

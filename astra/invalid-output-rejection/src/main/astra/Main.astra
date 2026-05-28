@@ -12,7 +12,7 @@
  * Invalid output never reaches the agent's belief base.
  */
 agent Main {
-    module generativelayers.adapters.astra.ResourceModule gl;
+    module gl.adapters.astra.ResourceModule gl;
     module Console console;
 
     types gl_types {
