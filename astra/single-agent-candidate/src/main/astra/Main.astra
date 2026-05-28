@@ -2,7 +2,7 @@
  * Single Agent Candidate — Generative Layer demonstration.
  *
  * Shows the fundamental Generative Layer flow:
- *   configure → useProvider → invoke → validate → accept/reject
+ *   configure → use_provider → invoke → validate → accept/reject
  *
  * The agent chooses its own provider and model, then asks the generative layer
  * to classify a food item. No generated output enters beliefs
@@ -26,20 +26,20 @@ agent Main {
         console.println("[Layer] Available providers: " + gl.providers());
 
         // Step 1 — Configure the provider (agent chooses!)
-        // Options: gl.useProvider("gemini");
-        //          gl.useProvider("gemini", "gemini-2.5-flash");
-        //          gl.useProvider("openai", "gpt-4o-mini");
-        //          gl.useProvider("fake");
+        // Options: gl.use_provider("gemini");
+        //          gl.use_provider("gemini", "gemini-2.5-flash");
+        //          gl.use_provider("openai", "gpt-4o-mini");
+        //          gl.use_provider("fake");
         //
         // Or fine-grained:
         //   gl.configure("provider", "gemini");
         //   gl.configure("model", "gemini-2.5-flash");
         //   gl.configure("temperature", "0.1");
-        //   gl.useProvider();
+        //   gl.use_provider();
         //
         // Default: fake provider for offline testing.
         // Switch to "gemini" when GEMINI_API_KEY is exported.
-        gl.useProvider("gemini");
+        gl.use_provider("gemini");
 
         // Step 2 — Invoke the generative resource
         string resultId = gl.invoke(
