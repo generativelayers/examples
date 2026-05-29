@@ -13,10 +13,8 @@ category("apple", "fruit"). category("carrot", "vegetable").
    <- .println("=== Pattern 6: Belief Consistency ===");
       // gl.configure("model", "gemini-2.0-flash");
       // gl.use_provider("gemini");
-      gl.configure("endpoint", "https://api.groq.com/openai/v1/chat/completions");
       gl.configure("model", "llama-3.3-70b-versatile");
-      gl.configure("apiKeyEnv", "GROQ_API_KEY");
-      gl.use_provider("openai");
+      gl.use_provider("groq");
       gl.ask("agent1", "classify", "Classify: apple", Rid);
       !decide(Rid).
 

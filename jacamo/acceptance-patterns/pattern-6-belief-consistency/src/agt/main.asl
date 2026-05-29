@@ -15,10 +15,8 @@ category("apple", "fruit"). category("carrot", "vegetable").
       focus(GlId);
       // configure("model", "gemini-2.0-flash");
       // use_provider("gemini");
-      configure("endpoint", "https://api.groq.com/openai/v1/chat/completions");
       configure("model", "llama-3.3-70b-versatile");
-      configure("apiKeyEnv", "GROQ_API_KEY");
-      use_provider("openai");
+      use_provider("groq");
       ask("agent1", "classify", "Classify: apple", Rid);
       valid(Rid, IsValid);
       !decide(Rid, IsValid).

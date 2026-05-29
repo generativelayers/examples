@@ -23,7 +23,10 @@ agent Main {
         console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
 
-        gl.use_provider();
+        gl.configure("model", "llama-3.3-70b-versatile");
+
+
+        gl.use_provider("groq");
 
         // Attempt 1 — invoke with strict required fields (missing 'category' will trigger validation failure)
         !tryClassify(

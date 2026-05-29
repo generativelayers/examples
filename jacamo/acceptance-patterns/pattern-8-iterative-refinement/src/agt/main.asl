@@ -14,10 +14,8 @@
       focus(GlId);
       // configure("model", "gemini-2.0-flash");
       // use_provider("gemini");
-      configure("endpoint", "https://api.groq.com/openai/v1/chat/completions");
       configure("model", "llama-3.3-70b-versatile");
-      configure("apiKeyEnv", "GROQ_API_KEY");
-      use_provider("openai");
+      use_provider("groq");
       // Step 1: Generate a draft
       ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", DraftRid);
       valid(DraftRid, DraftValid);

@@ -17,7 +17,9 @@
       .println("");
 
       // Configure provider from environment (default: fake)
-      gl.use_provider;
+      gl.configure("model", "llama-3.3-70b-versatile");
+
+      gl.use_provider("groq");
 
       // Attempt 1 β€” invoke with strict required fields (missing 'category' will trigger validation failure)
       !tryClassify(

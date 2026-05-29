@@ -19,7 +19,9 @@
       .println("[Layer] Available providers: ", Providers);
 
       // Step 1 β€” Configure the provider (reads GL_PROVIDER / GL_MODEL env vars)
-      gl.use_provider;
+      gl.configure("model", "llama-3.3-70b-versatile");
+
+      gl.use_provider("groq");
       !classify_food("apple").
 
 +!classify_food(FoodItem)

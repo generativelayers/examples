@@ -12,10 +12,8 @@
    <- .println("=== Pattern 8: Iterative Refinement ===");
       // gl.configure("model", "gemini-2.0-flash");
       // gl.use_provider("gemini");
-      gl.configure("endpoint", "https://api.groq.com/openai/v1/chat/completions");
       gl.configure("model", "llama-3.3-70b-versatile");
-      gl.configure("apiKeyEnv", "GROQ_API_KEY");
-      gl.use_provider("openai");
+      gl.use_provider("groq");
       // Step 1: Generate a draft
       gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", DraftRid);
       !critique(DraftRid).

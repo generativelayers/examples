@@ -24,7 +24,9 @@
 
 
       // Step 1 β€” Configure provider from environment (default: fake)
-      use_provider;
+      configure("model", "llama-3.3-70b-versatile");
+
+      use_provider("groq");
       !generate_candidate("mango").
 
 +!generate_candidate(FoodItem)

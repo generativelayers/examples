@@ -31,7 +31,9 @@ agent Responder extends GLOntology {
 
         // Step 1 — Configure provider
         // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
-        gl.use_provider();
+        gl.configure("model", "llama-3.3-70b-versatile");
+
+        gl.use_provider("groq");
 
         // Step 2 — Invoke generative body
         string resultId = gl.invoke(
