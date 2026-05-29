@@ -1,0 +1,31 @@
+/**
+ * Main — Entry point for the FIPA Request + GL demo.
+ *
+ * Creates the Responder and Requester agents.
+ *
+ * Demonstrates:
+ *   - FIPA Request protocol for delegated generation
+ *   - Shared GL ontology for type-safe inter-agent communication
+ *   - Full GL governance pipeline on the responder side
+ *   - Agent autonomy — Requester decides whether to adopt result
+ */
+agent Main {
+    module Console console;
+    module System S;
+
+    rule +!main(list args) {
+        console.println("=== FIPA Request + Generative Layer Demo ===");
+        console.println("");
+
+        // Create the responder first so it's ready to receive
+        S.createAgent("responder", "Responder");
+        console.println("[Main] Responder agent created.");
+
+        // Create the requester — it will send the FIPA request
+        S.createAgent("requester", "Requester");
+        console.println("[Main] Requester agent created.");
+
+        console.println("[Main] Agents are running. FIPA Request flow in progress...");
+        console.println("");
+    }
+}

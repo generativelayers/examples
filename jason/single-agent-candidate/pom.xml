@@ -39,13 +39,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
                 <configuration>
-                    <mainClass>gl.examples.jason.Launcher</mainClass>
-                    <systemProperties>
-                        <systemProperty>
-                            <key>java.util.logging.config.file</key>
-                            <value>${project.build.outputDirectory}/gl/logging.properties</value>
-                        </systemProperty>
-                    </systemProperties>
+                    <mainClass>gl.adapter.jason.MASLauncher</mainClass>
                 </configuration>
             </plugin>
         </plugins>

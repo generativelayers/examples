@@ -9,7 +9,7 @@
  * without explicit agent action.
  */
 agent Main {
-    module gl.adapters.astra.Adapter gl;
+    module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types gl_types {
@@ -37,9 +37,9 @@ agent Main {
         //   gl.configure("temperature", "0.1");
         //   gl.use_provider();
         //
-        // Default: fake provider for offline testing.
-        // Switch to "gemini" when GEMINI_API_KEY is exported.
-        gl.use_provider("gemini");
+        // No-arg auto-detects from GL_PROVIDER / GL_MODEL env vars.
+        // Default: "fake" for offline testing.
+        gl.use_provider();
 
         // Step 2 — Invoke the generative resource
         string resultId = gl.invoke(
@@ -78,7 +78,9 @@ agent Main {
 
             console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
         } else {
-            gl.reject(candidateId);
+            if (candidateId ~= "") {
+                gl.reject(candidateId);
+            }
             +candidate_rejected(candidateId);
 
             console.println("");

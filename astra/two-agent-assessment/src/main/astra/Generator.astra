@@ -7,7 +7,7 @@
  * before deciding to accept or reject.
  */
 agent Generator {
-    module gl.adapters.astra.Adapter gl;
+    module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types generator_types {
@@ -24,7 +24,8 @@ agent Generator {
     rule +!start() {
         console.println("[Generator] Starting candidate generation...");
 
-        gl.use_provider("gemini");
+        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
+        gl.use_provider();
 
         // Step 1 — Invoke the generative resource
         string resultId = gl.invoke(
@@ -55,7 +56,9 @@ agent Generator {
             console.println("[Generator] Waiting for assessor verdict...");
         } else {
             // Invalid — reject immediately, no need for assessment
-            gl.reject(candidateId);
+            if (candidateId ~= "") {
+                gl.reject(candidateId);
+            }
             +candidate_rejected(candidateId);
             console.println("[Generator] Candidate invalid. REJECTED immediately.");
         }

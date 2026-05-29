@@ -5,6 +5,8 @@
  * the candidateId, label, and confidence to the Assessor agent via
  * KQML messages, then waits for an assessment verdict
  * before deciding to accept or reject.
+ *
+ * Provider is configurable via GL_PROVIDER / GL_MODEL env vars.
  */
 
 !start.
@@ -12,29 +14,29 @@
 +!start
    <- .println("[Generator] Starting candidate generation...");
 
-      // Use fake provider to guarantee reliable, zero-config execution
-      gl.adapters.jason.actions.use_provider("fake");
+      // Configure provider from environment (default: fake)
+      gl.actions.use_provider;
 
       // Step 1 — Invoke the generative resource
-      gl.adapters.jason.actions.invoke(
+      gl.actions.invoke(
           "generator", "classify_food", "llm.answer", "ANSWER",
           "Classify 'mango' as a food type. Return label and confidence.",
           "label,confidence",
           ResultId
       );
 
-      gl.adapters.jason.actions.outcome(ResultId, Outcome);
-      gl.adapters.jason.actions.valid(ResultId, IsValid);
+      gl.actions.outcome(ResultId, Outcome);
+      gl.actions.valid(ResultId, IsValid);
 
       .println("[Generator] resultId  = ", ResultId);
       .println("[Generator] outcome   = ", Outcome);
       .println("[Generator] valid     = ", IsValid);
 
-      gl.adapters.jason.actions.candidate(ResultId, CandidateId);
+      gl.actions.candidate(ResultId, CandidateId);
 
       if (IsValid == true) {
-          gl.adapters.jason.actions.field(ResultId, "label", Label);
-          gl.adapters.jason.actions.field(ResultId, "confidence", Confidence);
+          gl.actions.field(ResultId, "label", Label);
+          gl.actions.field(ResultId, "confidence", Confidence);
 
           .println("[Generator] Candidate valid. Requesting assessment...");
           .println("[Generator]   label      = ", Label);
@@ -50,7 +52,7 @@
           if (CandidateId == "") {
               .println("[Generator] Candidate generation failed. No candidate created.");
           } else {
-              gl.adapters.jason.actions.reject(CandidateId);
+              gl.actions.reject(CandidateId);
               +candidate_rejected(CandidateId);
               .println("[Generator] Candidate invalid. REJECTED immediately.");
           };
@@ -62,7 +64,7 @@
       .println("[Generator]   reason: ", Explanation);
 
       // Agent decides to accept based on peer endorsement
-      gl.adapters.jason.actions.accept(CandidateId);
+      gl.actions.accept(CandidateId);
       +candidate_accepted(CandidateId);
       +assessment_received(CandidateId, "ACCEPT");
 
@@ -74,7 +76,7 @@
       .println("[Generator]   reason: ", Explanation);
 
       // Agent decides to reject based on peer contest
-      gl.adapters.jason.actions.reject(CandidateId);
+      gl.actions.reject(CandidateId);
       +candidate_rejected(CandidateId);
       +assessment_received(CandidateId, "REJECT");
 

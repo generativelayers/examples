@@ -10,6 +10,8 @@
  *
  * Key thesis point: fail-closed by default.
  * Invalid output never reaches the agent's belief base.
+ *
+ * Provider is configurable via GL_PROVIDER / GL_MODEL env vars.
  */
 
 !start.
@@ -18,7 +20,8 @@
    <- .println("=== Generative Layer Invalid Output Rejection Demo ===");
       .println("");
 
-      gl.adapters.jason.actions.use_provider("fake");
+      // Configure provider from environment (default: fake)
+      gl.actions.use_provider;
 
       // Attempt 1 — invoke with strict required fields
       // The fake provider will return output missing the 'category' field
@@ -42,7 +45,7 @@
    <- .println("[ATTEMPT ", AttemptNum, "] Invoking gl...");
       .println("[ATTEMPT ", AttemptNum, "]   required = ", RequiredCsv);
 
-      gl.adapters.jason.actions.invoke(
+      gl.actions.invoke(
           "agent_b",                  // agentId
           "classify_food",            // goalId
           "llm.answer",               // bodyId
@@ -52,19 +55,19 @@
           ResultId                    // output: bound result ID
       );
 
-      gl.adapters.jason.actions.outcome(ResultId, Outcome);
+      gl.actions.outcome(ResultId, Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   outcome  = ", Outcome);
 
-      gl.adapters.jason.actions.valid(ResultId, IsValid);
+      gl.actions.valid(ResultId, IsValid);
       .println("[ATTEMPT ", AttemptNum, "]   valid    = ", IsValid);
 
-      gl.adapters.jason.actions.candidate(ResultId, CandidateId);
+      gl.actions.candidate(ResultId, CandidateId);
 
       if (IsValid == true) {
-          gl.adapters.jason.actions.field(ResultId, "label", Label);
-          gl.adapters.jason.actions.field(ResultId, "confidence", Confidence);
+          gl.actions.field(ResultId, "label", Label);
+          gl.actions.field(ResultId, "confidence", Confidence);
 
-          gl.adapters.jason.actions.accept(CandidateId);
+          gl.actions.accept(CandidateId);
           +candidate_accepted(CandidateId);
           +classification(Label, Confidence, AttemptNum);
 
@@ -76,7 +79,7 @@
           if (CandidateId == "") {
               .println("[ATTEMPT ", AttemptNum, "]   FAILED — No candidate created.");
           } else {
-              gl.adapters.jason.actions.reject(CandidateId);
+              gl.actions.reject(CandidateId);
               +candidate_rejected(CandidateId, Outcome);
               .println("[ATTEMPT ", AttemptNum, "]   REJECTED — ", Outcome);
               .println("[ATTEMPT ", AttemptNum, "]   No beliefs adopted. Fail-closed.");

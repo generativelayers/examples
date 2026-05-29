@@ -1,0 +1,82 @@
+/**
+ * Responder Agent — handles FIPA Request by generating content via GL.
+ *
+ * On receiving a generation request:
+ *   1. Configures the GL provider
+ *   2. Invokes the generative body
+ *   3. Validates and inspects the candidate
+ *   4. Sends an inform back with the structured result
+ *
+ * The Responder is the "worker" agent — it uses the GL to generate
+ * content on behalf of the Requester, but all generation is governed
+ * through the full GL pipeline (policy → generate → validate → trace).
+ */
+agent Responder extends GLOntology {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    types responder_types {
+        formula generation_complete(string, string);
+    }
+
+    // Handle incoming FIPA Request
+    rule @message(request, string sender,
+                  gl_generate_request(string goalId, string affordance,
+                                       string prompt, string requiredFields)) {
+
+        console.println("[Responder] Received generation request from " + sender);
+        console.println("[Responder]   goalId     = " + goalId);
+        console.println("[Responder]   affordance = " + affordance);
+        console.println("[Responder]   prompt     = " + prompt);
+
+        // Step 1 — Configure provider
+        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
+        gl.use_provider();
+
+        // Step 2 — Invoke generative body
+        string resultId = gl.invoke(
+            "responder", goalId, "llm.answer", affordance,
+            prompt, requiredFields
+        );
+
+        console.println("[Responder] resultId  = " + resultId);
+        string outcome = gl.outcome(resultId);
+        boolean isValid = gl.valid(resultId);
+        console.println("[Responder] outcome   = " + outcome);
+        console.println("[Responder] valid     = " + isValid);
+
+        // Step 3 — Get candidate handle
+        string candidateId = gl.candidate(resultId);
+
+        if (isValid) {
+            string label      = gl.field(resultId, "label");
+            string confidence  = gl.field(resultId, "confidence");
+
+            console.println("[Responder] Generated:");
+            console.println("[Responder]   label      = " + label);
+            console.println("[Responder]   confidence = " + confidence);
+
+            // Accept the candidate ourselves before forwarding
+            if (candidateId ~= "") {
+                gl.accept(candidateId);
+            }
+            +generation_complete(resultId, "SUCCESS");
+
+            // Step 4 — Send inform back using shared ontology
+            send(inform, sender,
+                 gl_generate_response(resultId, candidateId, outcome, true));
+            console.println("[Responder] Sent valid response to " + sender);
+        } else {
+            // Reject invalid candidate (if one was produced)
+            if (candidateId ~= "") {
+                gl.reject(candidateId);
+            }
+            +generation_complete(resultId, "FAILED");
+
+            // Send failure inform
+            send(inform, sender,
+                 gl_generate_response(resultId, candidateId, outcome, false));
+            console.println("[Responder] Sent failure response to " + sender);
+        }
+    }
+}

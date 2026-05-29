@@ -12,7 +12,7 @@
  * Invalid output never reaches the agent's belief base.
  */
 agent Main {
-    module gl.adapters.astra.Adapter gl;
+    module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types gl_types {
@@ -28,7 +28,8 @@ agent Main {
         console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
 
-        gl.use_provider("gemini");
+        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
+        gl.use_provider();
 
         // Attempt 1 — invoke with strict required fields
         // The fake provider may return output missing some fields

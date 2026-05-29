@@ -1,8 +1,8 @@
 /**
  * Assessor Agent — peer-reviews a candidate from the Generator.
  *
- * Receives a candidate via KQML achieve message, applies domain-specific
- * assessment criteria, records a formal assessment, then sends the verdict back.
+ * Receives a candidate via KQML achieve, applies domain-specific
+ * assessment criteria, then sends the verdict back.
  *
  * The Assessor does NOT adopt or reject the candidate itself —
  * it only provides an assessment. The Generator agent makes
@@ -24,7 +24,7 @@
       .println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
       // Record formal assessment in the Generative Layer kernel
-      gl.adapters.jason.actions.assess(
+      gl.actions.assess(
           "assessor", CandidateId, "ACCEPT", 0.85,
           "Candidate produced valid structured output with required fields."
       );
