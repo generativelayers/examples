@@ -21,10 +21,7 @@
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
 
-      // Tell the assessor to focus on the same artifact
-      .send(assessor, achieve, focus_gl);
 
-      .wait(500);  // wait for assessor to focus
 
       // Step 1 β€” Configure provider from environment (default: fake)
       use_provider;
@@ -49,13 +46,13 @@
       field(ResultId, "label", Label);
       field(ResultId, "confidence", Confidence);
 
-      .println("[Generator] Candidate valid. Requesting assessment...");
+      .println("[Generator] Candidate is valid and admissible.");
       .println("[Generator]   label      = ", Label);
       .println("[Generator]   confidence = ", Confidence);
 
-      // Accept β†’ creates gl_accepted observable property perceived by peer Assessor
+      // Accept the candidate
       accept(CandidateId);
-      .println("[Generator] Candidate ACCEPTED. Assessor perceives via artifact.").
+      .println("[Generator] Candidate ACCEPTED. Belief adopted.").
 
 +!process_generation(ResultId)
    :  valid(ResultId, false)

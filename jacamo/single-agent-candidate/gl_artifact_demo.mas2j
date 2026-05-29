@@ -16,7 +16,6 @@ MAS gl_artifact_demo {
 
     agents:
         generator  agentArchClass jaca.CAgentArch;
-        assessor   agentArchClass jaca.CAgentArch;
 
     aslSourcePath: "src/agt";
 }
