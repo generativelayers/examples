@@ -1,6 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0">
+﻿<project xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github.generativelayers.examples</groupId>
+    <groupId>com.generativelayers.examples</groupId>
     <artifactId>astra-invalid-output-rejection</artifactId>
     <version>0.1.0</version>
 
@@ -27,9 +27,10 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.github.generativelayers</groupId>
+            <groupId>com.generativelayers</groupId>
             <artifactId>generative-layers-core</artifactId>
             <version>0.1.0</version>
         </dependency>
     </dependencies>
 </project>
+
