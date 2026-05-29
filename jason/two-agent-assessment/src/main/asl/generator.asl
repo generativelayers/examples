@@ -1,5 +1,5 @@
 /**
- * Generator Agent — produces a candidate via Generative Layer invocation.
+ * Generator Agent β€” produces a candidate via Generative Layer invocation.
  *
  * After generating and validating, the Generator sends
  * the candidateId, label, and confidence to the Assessor agent via
@@ -13,11 +13,11 @@
 
 +!start
    <- .println("[Generator] Starting candidate generation...");
-      gl.actions.use_provider;
+      gl.use_provider;
       !generate_candidate("mango").
 
 +!generate_candidate(FoodItem)
-   <- gl.actions.invoke(
+   <- gl.invoke(
           "generator", "classify_food", "llm.answer", "ANSWER",
           "Classify 'mango' as a food type. Return label and confidence.",
           "label,confidence",
@@ -27,49 +27,49 @@
       !process_generation(ResultId).
 
 +!process_generation(ResultId)
-   :  gl.actions.valid(ResultId, true)
-   <- gl.actions.candidate(ResultId, CandidateId);
-      gl.actions.field(ResultId, "label", Label);
-      gl.actions.field(ResultId, "confidence", Confidence);
+   :  gl.valid(ResultId, true)
+   <- gl.candidate(ResultId, CandidateId);
+      gl.field(ResultId, "label", Label);
+      gl.field(ResultId, "confidence", Confidence);
 
       .println("[Generator] Candidate valid. Requesting assessment...");
       .println("[Generator]   label      = ", Label);
       .println("[Generator]   confidence = ", Confidence);
 
-      // Step 2 — Send candidate to Assessor for peer review
+      // Step 2 β€” Send candidate to Assessor for peer review
       .send(assessor, achieve, review(CandidateId, ResultId, Label, Confidence));
 
-      // Step 3 — Wait for assessment verdict
+      // Step 3 β€” Wait for assessment verdict
       .println("[Generator] Waiting for assessor verdict...").
 
 +!process_generation(ResultId)
-   :  gl.actions.valid(ResultId, false)
-   <- gl.actions.candidate(ResultId, CandidateId);
+   :  gl.valid(ResultId, false)
+   <- gl.candidate(ResultId, CandidateId);
       if (CandidateId \== "") {
-          gl.actions.reject(CandidateId);
+          gl.reject(CandidateId);
           +candidate_rejected(CandidateId);
       };
       .println("[Generator] Candidate invalid. REJECTED immediately.").
 
-// Step 4 — Handle assessment response: ACCEPT
+// Step 4 β€” Handle assessment response: ACCEPT
 +verdict(CandidateId, "ACCEPT", Explanation)[source(Sender)]
    <- .println("[Generator] Assessment from ", Sender, ": ACCEPT");
       .println("[Generator]   reason: ", Explanation);
 
       // Agent decides to accept based on peer endorsement
-      gl.actions.accept(CandidateId);
+      gl.accept(CandidateId);
       +candidate_accepted(CandidateId);
       +assessment_received(CandidateId, "ACCEPT");
 
       .println("[Generator] Candidate ACCEPTED after peer assessment.").
 
-// Step 4 — Handle assessment response: REJECT
+// Step 4 β€” Handle assessment response: REJECT
 +verdict(CandidateId, "REJECT", Explanation)[source(Sender)]
    <- .println("[Generator] Assessment from ", Sender, ": REJECT");
       .println("[Generator]   reason: ", Explanation);
 
       // Agent decides to reject based on peer contest
-      gl.actions.reject(CandidateId);
+      gl.reject(CandidateId);
       +candidate_rejected(CandidateId);
       +assessment_received(CandidateId, "REJECT");
 

@@ -1,10 +1,10 @@
 /**
- * Assessor Agent — peer-reviews a candidate from the Generator.
+ * Assessor Agent β€” peer-reviews a candidate from the Generator.
  *
  * Receives a candidate via KQML achieve, applies domain-specific
  * assessment criteria, then sends the verdict back.
  *
- * The Assessor does NOT adopt or reject the candidate itself —
+ * The Assessor does NOT adopt or reject the candidate itself β€”
  * it only provides an assessment. The Generator agent makes
  * the final adoption decision (agent autonomy preserved).
  */
@@ -24,7 +24,7 @@
    <- .println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
       // Record formal assessment in the Generative Layer kernel
-      gl.actions.assess(
+      gl.assess(
           "assessor", CandidateId, "ACCEPT", 0.85,
           "Candidate produced valid structured output with required fields."
       );
@@ -37,8 +37,8 @@
    :  Label == "" | Confidence == ""
    <- .println("[Assessor] Candidate does NOT look valid. Recording REJECT assessment.");
 
-      // Record formal assessment in the Generative Layer kernel — rejected
-      gl.actions.assess(
+      // Record formal assessment in the Generative Layer kernel β€” rejected
+      gl.assess(
           "assessor", CandidateId, "REJECT", 0.90,
           "Candidate failed validation; missing fields."
       );

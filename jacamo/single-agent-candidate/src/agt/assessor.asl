@@ -1,14 +1,14 @@
 /**
- * Assessor Agent — perceives accepted candidates via CArtAgO artifact sensing.
+ * Assessor Agent β€” perceives accepted candidates via CArtAgO artifact sensing.
  *
  * Instead of receiving ACL messages (as in Jason/ASTRA examples),
  * the Assessor focuses on the same GL artifact as the Generator.
  * When the Generator calls accept(), the observable property
  * gl_accepted(CandidateId, Fields) appears and is automatically
- * perceived as a new belief — the CArtAgO "sensing" pattern.
+ * perceived as a new belief β€” the CArtAgO "sensing" pattern.
  *
  * Same GL flow as ASTRA/Jason two-agent-assessment examples:
- *   perceive candidate → assess → record verdict
+ *   perceive candidate β†’ assess β†’ record verdict
  */
 
 // Wait for generator to create the artifact, then focus on it
