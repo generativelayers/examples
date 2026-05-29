@@ -5,13 +5,12 @@
  *
  * Demonstrates:
  *   - Inter-agent assessment via KQML messages
- *   - Assessment as a first-class Generative Layer artifact
- *   - Agent autonomy — the Generator decides, not the LLM or the Assessor
- *   - Full traceability of the candidate lifecycle
+ *   - Platform independence (identical patterns to ASTRA)
  */
 
 MAS two_agent_assessment {
     agents:
         generator;
         assessor;
+    aslSourcePath: "src/main/asl";
 }

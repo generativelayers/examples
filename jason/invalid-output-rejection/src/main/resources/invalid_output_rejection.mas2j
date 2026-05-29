@@ -1,3 +1,4 @@
 MAS invalid_output_rejection {
     agents: main;
+    aslSourcePath: "src/main/asl";
 }

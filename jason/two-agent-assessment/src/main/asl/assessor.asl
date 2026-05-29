@@ -24,7 +24,7 @@
       .println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
       // Record formal assessment in the Generative Layer kernel
-      .gl.adapters.jason.actions.assess(
+      gl.adapters.jason.actions.assess(
           "assessor", CandidateId, "ACCEPT", 0.85,
           "Candidate produced valid structured output with required fields."
       );

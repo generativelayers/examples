@@ -7,4 +7,5 @@
 
 MAS single_agent_candidate {
     agents: main;
+    aslSourcePath: "src/main/asl";
 }
