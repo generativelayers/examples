@@ -3,10 +3,6 @@
  *
  * Receives a candidate via FIPA ACL request, applies domain-specific
  * assessment criteria, then sends the verdict back.
- *
- * The Assessor does NOT adopt or reject the candidate itself —
- * it only provides an assessment. The Generator agent makes
- * the final adoption decision (agent autonomy preserved).
  */
 agent Assessor {
     module gl.adapter.astra.AstraAdapter gl;
@@ -21,49 +17,38 @@ agent Assessor {
     // Handle incoming assessment request from Generator
     rule @message(request, string sender,
                   review_request(string candidateId, string resultId,
-                         string label, string confidence)) {
+                          string label, string confidence)) {
 
         console.println("[Assessor] Received assessment request from " + sender);
         console.println("[Assessor]   candidateId = " + candidateId);
         console.println("[Assessor]   label       = " + label);
         console.println("[Assessor]   confidence  = " + confidence);
 
-        // Assessor deliberation — apply domain-specific criteria
-        // The assessor inspects the data fields sent by the Generator
-        // and makes its own judgment.
         !evaluateCandidate(sender, candidateId, label, confidence);
     }
 
+    // Deliberate with context-guarded plans instead of procedural checks:
     rule +!evaluateCandidate(string sender, string candidateId,
-                             string label, string confidence) {
+                             string label, string confidence) : label ~= "" & confidence ~= "" {
+        console.println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
-        // Domain-specific assessment: does the classification look reasonable?
-        // A real assessor would apply richer domain logic here.
-        // We check that both fields were provided with non-empty values.
-        boolean looksValid = true;
+        gl.assess("assessor", candidateId, "ACCEPT", 0.85,
+                   "Candidate produced valid structured output with required fields.");
+        +assessment_recorded(candidateId, "ACCEPT");
 
-        if (looksValid) {
-            console.println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
+        send(inform, sender, verdict(candidateId, "ACCEPT",
+             "Valid output with label and confidence fields present."));
+    }
 
-            // Record formal assessment in the Generative Layer kernel
-            gl.assess("assessor", candidateId, "ACCEPT", 0.85,
-                       "Candidate produced valid structured output with required fields.");
-            +assessment_recorded(candidateId, "ACCEPT");
+    rule +!evaluateCandidate(string sender, string candidateId,
+                             string label, string confidence) : label == "" | confidence == "" {
+        console.println("[Assessor] Candidate does NOT look valid. Recording REJECT assessment.");
 
-            // Send verdict back to the Generator
-            send(inform, sender, verdict(candidateId, "ACCEPT",
-                 "Valid output with label and confidence fields present."));
-        } else {
-            console.println("[Assessor] Candidate does NOT look valid. Recording REJECT assessment.");
+        gl.assess("assessor", candidateId, "REJECT", 0.90,
+                   "Candidate failed validation; output does not meet quality criteria.");
+        +assessment_recorded(candidateId, "REJECT");
 
-            // Record formal assessment — rejected
-            gl.assess("assessor", candidateId, "REJECT", 0.90,
-                       "Candidate failed validation; output does not meet quality criteria.");
-            +assessment_recorded(candidateId, "REJECT");
-
-            // Send verdict back to the Generator
-            send(inform, sender, verdict(candidateId, "REJECT",
-                 "Output failed validation criteria."));
-        }
+        send(inform, sender, verdict(candidateId, "REJECT",
+             "Output failed validation criteria."));
     }
 }

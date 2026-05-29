@@ -41,42 +41,46 @@ agent Responder extends GLOntology {
 
         console.println("[Responder] resultId  = " + resultId);
         string outcome = gl.outcome(resultId);
-        boolean isValid = gl.valid(resultId);
         console.println("[Responder] outcome   = " + outcome);
-        console.println("[Responder] valid     = " + isValid);
 
         // Step 3 — Get candidate handle
         string candidateId = gl.candidate(resultId);
 
-        if (isValid) {
-            string label      = gl.field(resultId, "label");
-            string confidence  = gl.field(resultId, "confidence");
+        // Delegate to BDI context-guarded plans for deliberation
+        !process_response(resultId, candidateId, outcome, sender);
+    }
 
-            console.println("[Responder] Generated:");
-            console.println("[Responder]   label      = " + label);
-            console.println("[Responder]   confidence = " + confidence);
+    // Context-guarded plans instead of procedural checks:
+    rule +!process_response(string resultId, string candidateId, string outcome, string sender) : gl.valid(resultId) == true {
+        string label      = gl.field(resultId, "label");
+        string confidence  = gl.field(resultId, "confidence");
 
-            // Accept the candidate ourselves before forwarding
-            if (candidateId ~= "") {
-                gl.accept(candidateId);
-            }
-            +generation_complete(resultId, "SUCCESS");
+        console.println("[Responder] Generated:");
+        console.println("[Responder]   label      = " + label);
+        console.println("[Responder]   confidence = " + confidence);
 
-            // Step 4 — Send inform back using shared ontology
-            send(inform, sender,
-                 gl_generate_response(resultId, candidateId, outcome, true));
-            console.println("[Responder] Sent valid response to " + sender);
-        } else {
-            // Reject invalid candidate (if one was produced)
-            if (candidateId ~= "") {
-                gl.reject(candidateId);
-            }
-            +generation_complete(resultId, "FAILED");
-
-            // Send failure inform
-            send(inform, sender,
-                 gl_generate_response(resultId, candidateId, outcome, false));
-            console.println("[Responder] Sent failure response to " + sender);
+        // Accept the candidate ourselves before forwarding
+        if (candidateId ~= "") {
+            gl.accept(candidateId);
         }
+        +generation_complete(resultId, "SUCCESS");
+
+        // Step 4 — Send inform back using shared ontology
+        send(inform, sender,
+             gl_generate_response(resultId, candidateId, outcome, true));
+        console.println("[Responder] Sent valid response to " + sender);
+    }
+
+    rule +!process_response(string resultId, string candidateId, string outcome, string sender) : gl.valid(resultId) == false {
+        // Reject invalid candidate (if one was produced)
+        if (candidateId ~= "") {
+            gl.reject(candidateId);
+        }
+        +generation_complete(resultId, "FAILED");
+
+        // Send failure inform
+        send(inform, sender,
+             gl_generate_response(resultId, candidateId, outcome, false));
+        console.println("[Responder] Sent failure response to " + sender);
     }
 }

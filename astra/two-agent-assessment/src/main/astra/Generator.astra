@@ -23,48 +23,41 @@ agent Generator {
 
     rule +!start() {
         console.println("[Generator] Starting candidate generation...");
-
-        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
         gl.use_provider();
-
-        // Step 1 — Invoke the generative resource
-        string resultId = gl.invoke(
-            "generator", "classify_food", "llm.answer", "ANSWER",
-            "Classify 'mango' as a food type. Return label and confidence.",
-            "label,confidence"
-        );
-
-        console.println("[Generator] resultId  = " + resultId);
-        console.println("[Generator] outcome   = " + gl.outcome(resultId));
-        console.println("[Generator] valid     = " + gl.valid(resultId));
-
-        string candidateId = gl.candidate(resultId);
-        boolean isValid = gl.valid(resultId);
-
-        if (isValid) {
-            string label      = gl.field(resultId, "label");
-            string confidence  = gl.field(resultId, "confidence");
-
-            console.println("[Generator] Candidate valid. Requesting assessment...");
-            console.println("[Generator]   label      = " + label);
-            console.println("[Generator]   confidence = " + confidence);
-
-            // Step 2 — Send candidate to Assessor for peer review
-            send(request, "assessor", review_request(candidateId, resultId, label, confidence));
-
-            // Step 3 — Wait for assessment verdict
-            console.println("[Generator] Waiting for assessor verdict...");
-        } else {
-            // Invalid — reject immediately, no need for assessment
-            if (candidateId ~= "") {
-                gl.reject(candidateId);
-            }
-            +candidate_rejected(candidateId);
-            console.println("[Generator] Candidate invalid. REJECTED immediately.");
-        }
+        !generate_candidate("mango");
     }
 
-    // Step 4 — Handle assessment response: ACCEPT
+    rule +!generate_candidate(string foodItem) {
+        string resultId = gl.invoke(
+            "generator", "classify_food", "llm.answer", "ANSWER",
+            "Classify '" + foodItem + "' as a food type. Return label and confidence.",
+            "label,confidence"
+        );
+        console.println("[Generator] resultId  = " + resultId);
+        !process_generation(resultId);
+    }
+    rule +!process_generation(string resultId) : gl.valid(resultId) == true {
+        string candidateId = gl.candidate(resultId);
+        string label      = gl.field(resultId, "label");
+        string confidence  = gl.field(resultId, "confidence");
+
+        console.println("[Generator] Candidate valid. Requesting assessment...");
+        console.println("[Generator]   label      = " + label);
+        console.println("[Generator]   confidence = " + confidence);
+
+        send(request, "assessor", review_request(candidateId, resultId, label, confidence));
+        console.println("[Generator] Waiting for assessor verdict...");
+    }
+
+    rule +!process_generation(string resultId) : gl.valid(resultId) == false {
+        string candidateId = gl.candidate(resultId);
+        if (candidateId ~= "") {
+            gl.reject(candidateId);
+        }
+        +candidate_rejected(candidateId);
+        console.println("[Generator] Candidate invalid. REJECTED immediately.");
+    }
+    // Handle assessment response: ACCEPT
     rule @message(inform, string sender,
                   verdict(string candidateId, string decision, string explanation)) :
         decision == "ACCEPT" {
@@ -72,7 +65,6 @@ agent Generator {
         console.println("[Generator] Assessment from " + sender + ": ACCEPT");
         console.println("[Generator]   reason: " + explanation);
 
-        // Agent decides to accept based on peer endorsement
         gl.accept(candidateId);
         +candidate_accepted(candidateId);
         +assessment_received(candidateId, "ACCEPT");
@@ -80,7 +72,7 @@ agent Generator {
         console.println("[Generator] Candidate ACCEPTED after peer assessment.");
     }
 
-    // Step 4 — Handle assessment response: REJECT
+    // Handle assessment response: REJECT
     rule @message(inform, string sender,
                   verdict(string candidateId, string decision, string explanation)) :
         decision == "REJECT" {
@@ -88,7 +80,6 @@ agent Generator {
         console.println("[Generator] Assessment from " + sender + ": REJECT");
         console.println("[Generator]   reason: " + explanation);
 
-        // Agent decides to reject based on peer contest
         gl.reject(candidateId);
         +candidate_rejected(candidateId);
         +assessment_received(candidateId, "REJECT");

@@ -6,11 +6,6 @@
  *
  * Uses the same GL commands as the ASTRA version:
  *   gl.actions.<command>(...)
- *
- * Provider is configurable via environment:
- *   GL_PROVIDER=gemini  GL_MODEL=gemini-2.5-flash  mvn exec:java
- *   GL_PROVIDER=openai  GL_MODEL=gpt-4o-mini       mvn exec:java
- *   GL_PROVIDER=fake                                mvn exec:java  (default)
  */
 
 !start.
@@ -24,11 +19,11 @@
       .println("[Layer] Available providers: ", Providers);
 
       // Step 1 — Configure the provider (reads GL_PROVIDER / GL_MODEL env vars)
-      // To override: set GL_PROVIDER=gemini and GL_MODEL=gemini-2.5-flash
-      // Default: "fake" for offline testing.
       gl.actions.use_provider;
+      !classify_food("apple").
 
-      // Step 2 — Invoke the generative resource
++!classify_food(FoodItem)
+   <- // Step 2 — Invoke the generative resource
       gl.actions.invoke(
           "agent_a",                  // agentId
           "classify_food",            // goalId
@@ -40,45 +35,57 @@
       );
 
       .println("[Layer] resultId  = ", ResultId);
+      !deliberate_result(ResultId).
 
-      gl.actions.outcome(ResultId, Outcome);
-      .println("[Layer] outcome   = ", Outcome);
-
-      gl.actions.valid(ResultId, IsValid);
-      .println("[Layer] valid     = ", IsValid);
-
-      // Step 3 — Get the candidate handle
+// Step 3 — deliberate based on validation results using BDI context-guards:
++!deliberate_result(ResultId)
+   :  gl.actions.valid(ResultId, true)
+   <- .println("[Layer] valid     = true");
       gl.actions.candidate(ResultId, CandidateId);
       .println("[Layer] candidate = ", CandidateId);
+      !deliberate_candidate(ResultId, CandidateId).
 
-      // Step 4 — Agent deliberation: inspect, then accept or reject
-      gl.actions.admissible(CandidateId, IsAdmissible);
++!deliberate_result(ResultId)
+   :  gl.actions.valid(ResultId, false)
+   <- .println("[Layer] valid     = false");
+      !handle_rejection("", ResultId).
 
-      if (IsValid == true & IsAdmissible == true) {
-          gl.actions.field(ResultId, "label", Label);
-          gl.actions.field(ResultId, "confidence", Confidence);
+// Deliberating candidate with BDI guard conditions:
++!deliberate_candidate(ResultId, CandidateId)
+   :  gl.actions.admissible(CandidateId, true)
+   <- gl.actions.field(ResultId, "label", Label);
+      gl.actions.field(ResultId, "confidence", Confidence);
 
-          .println("");
-          .println("[AGENT] Candidate is valid and admissible.");
-          .println("[AGENT]   label      = ", Label);
-          .println("[AGENT]   confidence = ", Confidence);
+      .println("");
+      .println("[AGENT] Candidate is valid and admissible.");
+      .println("[AGENT]   label      = ", Label);
+      .println("[AGENT]   confidence = ", Confidence);
 
-          gl.actions.accept(CandidateId);
-          +candidate_accepted(CandidateId);
-          +classification(Label, Confidence);
+      gl.actions.accept(CandidateId);
+      +candidate_accepted(CandidateId);
+      +classification(Label, Confidence);
 
-          .println("[AGENT] Candidate ACCEPTED. Belief adopted.");
-      } else {
+      .println("[AGENT] Candidate ACCEPTED. Belief adopted.");
+      !print_trace(ResultId).
+
++!deliberate_candidate(ResultId, CandidateId)
+   :  gl.actions.admissible(CandidateId, false)
+   <- !handle_rejection(CandidateId, ResultId).
+
++!handle_rejection(CandidateId, ResultId)
+   <- if (CandidateId \== "") {
           gl.actions.reject(CandidateId);
-          +candidate_rejected(CandidateId);
-
-          .println("");
-          .println("[AGENT] Candidate REJECTED.");
-          .println("[AGENT]   outcome = ", Outcome);
       };
+      +candidate_rejected(CandidateId);
 
-      // Step 5 — Trace for auditability
-      gl.actions.trace(ResultId, TraceId);
+      .println("");
+      .println("[AGENT] Candidate REJECTED.");
+      gl.actions.outcome(ResultId, Outcome);
+      .println("[AGENT]   outcome = ", Outcome);
+      !print_trace(ResultId).
+
++!print_trace(ResultId)
+   <- gl.actions.trace(ResultId, TraceId);
       .println("");
       .println("[TRACE] traceId = ", TraceId);
       .println("=== Demo Complete ===").

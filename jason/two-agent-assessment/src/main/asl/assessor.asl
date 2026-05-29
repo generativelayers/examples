@@ -18,10 +18,10 @@
 
       !evaluate(Sender, CandidateId, Label, Confidence).
 
+// Deliberation using context-guarded plans instead of procedural checks:
 +!evaluate(Sender, CandidateId, Label, Confidence)
-   <- // Domain-specific assessment: does the classification look reasonable?
-      // A real assessor would apply richer domain logic here.
-      .println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
+   :  Label \== "" & Confidence \== ""
+   <- .println("[Assessor] Candidate looks valid. Recording ACCEPT assessment.");
 
       // Record formal assessment in the Generative Layer kernel
       gl.actions.assess(
@@ -32,3 +32,17 @@
       // Send verdict back to the Generator
       .send(Sender, tell, verdict(CandidateId, "ACCEPT",
            "Valid output with label and confidence fields present.")).
+
++!evaluate(Sender, CandidateId, Label, Confidence)
+   :  Label == "" | Confidence == ""
+   <- .println("[Assessor] Candidate does NOT look valid. Recording REJECT assessment.");
+
+      // Record formal assessment in the Generative Layer kernel — rejected
+      gl.actions.assess(
+          "assessor", CandidateId, "REJECT", 0.90,
+          "Candidate failed validation; missing fields."
+      );
+
+      // Send verdict back to the Generator
+      .send(Sender, tell, verdict(CandidateId, "REJECT",
+           "Output failed validation criteria.")).

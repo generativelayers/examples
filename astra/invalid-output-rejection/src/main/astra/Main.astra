@@ -2,14 +2,9 @@
  * Invalid Output Rejection — Generative Layer demonstration.
  *
  * Shows how the Generative Layer framework handles invalid/malformed
- * generative output. The agent:
- *   1. Requests structured output with required fields
- *   2. Receives a result that fails validation (missing fields)
- *   3. Rejects the candidate — no belief pollution occurs
- *   4. Retries with a corrective prompt
+ * generative output.
  *
  * Key thesis point: fail-closed by default.
- * Invalid output never reaches the agent's belief base.
  */
 agent Main {
     module gl.adapter.astra.AstraAdapter gl;
@@ -28,18 +23,16 @@ agent Main {
         console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
 
-        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
         gl.use_provider();
 
-        // Attempt 1 — invoke with strict required fields
-        // The fake provider may return output missing some fields
+        // Attempt 1 — invoke with strict required fields (missing 'category' will trigger validation failure)
         !tryClassify(
             "Classify 'banana' as food. Return label, confidence, and category.",
             "label,confidence,category",
             1
         );
 
-        // Attempt 2 — invoke with relaxed required fields
+        // Attempt 2 — invoke with relaxed required fields (success!)
         !tryClassify(
             "Classify 'banana' as food. Return label and confidence.",
             "label,confidence",
@@ -58,34 +51,42 @@ agent Main {
             "agent_a", "classify_food", "llm.answer", "ANSWER",
             prompt, requiredCsv
         );
+        !deliberate_result(resultId, attemptNum);
+    }
 
+    // Context-guarded plans instead of procedural checks:
+    rule +!deliberate_result(string resultId, int attemptNum) : gl.valid(resultId) == true {
         string outcome = gl.outcome(resultId);
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
-        console.println("[ATTEMPT " + attemptNum + "]   valid    = " + gl.valid(resultId));
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = true");
 
         string candidateId = gl.candidate(resultId);
-        boolean isValid = gl.valid(resultId);
+        string label      = gl.field(resultId, "label");
+        string confidence  = gl.field(resultId, "confidence");
 
-        if (isValid) {
-            // Valid — extract fields and accept
-            string label      = gl.field(resultId, "label");
-            string confidence  = gl.field(resultId, "confidence");
+        gl.accept(candidateId);
+        +candidate_accepted(candidateId);
+        +classification(label, confidence, "attempt_" + attemptNum);
 
-            gl.accept(candidateId);
-            +candidate_accepted(candidateId);
-            +classification(label, confidence, "attempt_" + attemptNum);
+        console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
+        console.println("[ATTEMPT " + attemptNum + "]     label      = " + label);
+        console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
 
-            console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
-            console.println("[ATTEMPT " + attemptNum + "]     label      = " + label);
-            console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
-        } else {
-            // Invalid — reject, log reason, do NOT adopt anything
-            gl.reject(candidateId);
-            +candidate_rejected(candidateId, outcome);
+        -+attempt(attemptNum);
+        console.println("");
+    }
 
-            console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
-            console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
-        }
+    rule +!deliberate_result(string resultId, int attemptNum) : gl.valid(resultId) == false {
+        string outcome = gl.outcome(resultId);
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
+
+        string candidateId = gl.candidate(resultId);
+        gl.reject(candidateId);
+        +candidate_rejected(candidateId, outcome);
+
+        console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
 
         -+attempt(attemptNum);
         console.println("");

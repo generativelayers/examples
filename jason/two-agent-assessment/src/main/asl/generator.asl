@@ -13,50 +13,43 @@
 
 +!start
    <- .println("[Generator] Starting candidate generation...");
-
-      // Configure provider from environment (default: fake)
       gl.actions.use_provider;
+      !generate_candidate("mango").
 
-      // Step 1 — Invoke the generative resource
-      gl.actions.invoke(
++!generate_candidate(FoodItem)
+   <- gl.actions.invoke(
           "generator", "classify_food", "llm.answer", "ANSWER",
           "Classify 'mango' as a food type. Return label and confidence.",
           "label,confidence",
           ResultId
       );
-
-      gl.actions.outcome(ResultId, Outcome);
-      gl.actions.valid(ResultId, IsValid);
-
       .println("[Generator] resultId  = ", ResultId);
-      .println("[Generator] outcome   = ", Outcome);
-      .println("[Generator] valid     = ", IsValid);
+      !process_generation(ResultId).
 
-      gl.actions.candidate(ResultId, CandidateId);
++!process_generation(ResultId)
+   :  gl.actions.valid(ResultId, true)
+   <- gl.actions.candidate(ResultId, CandidateId);
+      gl.actions.field(ResultId, "label", Label);
+      gl.actions.field(ResultId, "confidence", Confidence);
 
-      if (IsValid == true) {
-          gl.actions.field(ResultId, "label", Label);
-          gl.actions.field(ResultId, "confidence", Confidence);
+      .println("[Generator] Candidate valid. Requesting assessment...");
+      .println("[Generator]   label      = ", Label);
+      .println("[Generator]   confidence = ", Confidence);
 
-          .println("[Generator] Candidate valid. Requesting assessment...");
-          .println("[Generator]   label      = ", Label);
-          .println("[Generator]   confidence = ", Confidence);
+      // Step 2 — Send candidate to Assessor for peer review
+      .send(assessor, achieve, review(CandidateId, ResultId, Label, Confidence));
 
-          // Step 2 — Send candidate to Assessor for peer review
-          .send(assessor, achieve, review(CandidateId, ResultId, Label, Confidence));
+      // Step 3 — Wait for assessment verdict
+      .println("[Generator] Waiting for assessor verdict...").
 
-          // Step 3 — Wait for assessment verdict
-          .println("[Generator] Waiting for assessor verdict...");
-      } else {
-          // Invalid — reject immediately if a candidate was created
-          if (CandidateId == "") {
-              .println("[Generator] Candidate generation failed. No candidate created.");
-          } else {
-              gl.actions.reject(CandidateId);
-              +candidate_rejected(CandidateId);
-              .println("[Generator] Candidate invalid. REJECTED immediately.");
-          };
-      }.
++!process_generation(ResultId)
+   :  gl.actions.valid(ResultId, false)
+   <- gl.actions.candidate(ResultId, CandidateId);
+      if (CandidateId \== "") {
+          gl.actions.reject(CandidateId);
+          +candidate_rejected(CandidateId);
+      };
+      .println("[Generator] Candidate invalid. REJECTED immediately.").
 
 // Step 4 — Handle assessment response: ACCEPT
 +verdict(CandidateId, "ACCEPT", Explanation)[source(Sender)]
