@@ -11,7 +11,12 @@
    <- .println("=== Pattern 7: Majority Voting ===");
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
-      use_provider;
+      // configure("model", "gemini-2.0-flash");
+      // use_provider("gemini");
+      configure("endpoint", "https://api.groq.com/openai/v1/chat/completions");
+      configure("model", "llama-3.3-70b-versatile");
+      configure("apiKeyEnv", "GROQ_API_KEY");
+      use_provider("openai");
       ask("agent1", "classify", "Classify: tomato", R1);
       ask("agent1", "classify", "Classify: tomato", R2);
       ask("agent1", "classify", "Classify: tomato", R3);
