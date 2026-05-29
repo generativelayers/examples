@@ -1,0 +1,5 @@
+MAS pattern_4_cross_llm_verification {
+    agents:
+        main;
+    aslSourcePath: "src/main/asl";
+}

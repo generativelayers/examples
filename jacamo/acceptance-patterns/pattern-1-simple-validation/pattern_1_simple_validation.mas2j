@@ -1,0 +1,9 @@
+MAS pattern_1_simple_validation {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

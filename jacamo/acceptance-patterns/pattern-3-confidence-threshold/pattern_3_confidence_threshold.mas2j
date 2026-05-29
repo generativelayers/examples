@@ -1,0 +1,9 @@
+MAS pattern_3_confidence_threshold {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

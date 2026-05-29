@@ -1,0 +1,34 @@
+/**
+ * Pattern 4: Cross-LLM Verification — ASTRA
+ *
+ * Asks a second LLM to verify the first LLM's output.
+ * Accepts only if both providers return valid results.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    rule +!main(list args) {
+        console.println("=== Pattern 4: Cross-LLM Verification ===");
+        gl.use_provider();
+        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        !verify(rid);
+    }
+
+    rule +!verify(string rid) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
+        string cid = gl.candidate(rid);
+        string vrid = gl.ask("agent1", "verify", "Is this correct? apple = " + label);
+        !compare(cid, vrid);
+    }
+
+    rule +!compare(string cid, string vrid) : gl.valid(vrid) == true {
+        gl.accept(cid);
+        console.println("Both providers agreed → ACCEPTED");
+    }
+
+    rule +!compare(string cid, string vrid) : gl.valid(vrid) == false {
+        gl.reject(cid);
+        console.println("Second provider invalid → REJECTED");
+    }
+}

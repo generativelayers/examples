@@ -1,0 +1,5 @@
+MAS pattern_2_content_inspection {
+    agents:
+        main;
+    aslSourcePath: "src/main/asl";
+}

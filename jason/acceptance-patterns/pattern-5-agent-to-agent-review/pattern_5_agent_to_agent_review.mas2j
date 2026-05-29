@@ -1,0 +1,6 @@
+MAS pattern_5_agent_to_agent_review {
+    agents:
+        reviewer;
+        main;
+    aslSourcePath: "src/main/asl";
+}

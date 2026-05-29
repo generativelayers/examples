@@ -1,0 +1,39 @@
+/**
+ * Pattern 2: Content Inspection — ASTRA
+ *
+ * After validation, inspects the LLM output against the agent's
+ * own knowledge base. Accepts only if the label is a known category.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    types pattern_types {
+        formula known(string);
+    }
+
+    initial known("fruit"), known("vegetable"), known("grain");
+
+    rule +!main(list args) {
+        console.println("=== Pattern 2: Content Inspection ===");
+        gl.use_provider();
+        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        !decide(rid);
+    }
+
+    rule +!decide(string rid) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
+        string cid = gl.candidate(rid);
+        !check_content(cid, label);
+    }
+
+    rule +!check_content(string cid, string label) : known(label) {
+        gl.accept(cid);
+        console.println("Known category '" + label + "' → ACCEPTED");
+    }
+
+    rule +!check_content(string cid, string label) : ~known(label) {
+        gl.reject(cid);
+        console.println("Unknown category '" + label + "' → REJECTED");
+    }
+}

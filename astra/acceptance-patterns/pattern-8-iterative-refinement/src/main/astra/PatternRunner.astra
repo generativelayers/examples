@@ -1,0 +1,53 @@
+/**
+ * Pattern 8: Iterative Refinement — ASTRA
+ *
+ * Three-step pipeline: Draft → Critique → Refine → Accept.
+ * Each step goes through the governance pipeline.
+ * Only the final refined version is accepted.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    rule +!main(list args) {
+        console.println("=== Pattern 8: Iterative Refinement ===");
+        gl.use_provider();
+
+        // Step 1: Generate a draft
+        string draftRid = gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis");
+        !critique(draftRid);
+    }
+
+    // Step 2: Critique the draft
+    rule +!critique(string draftRid) : gl.valid(draftRid) == true {
+        console.println("Draft generated (valid) → requesting critique");
+        string critiqueRid = gl.ask("agent1", "critique", "Critique the summary of photosynthesis");
+        !refine(critiqueRid);
+    }
+
+    rule +!critique(string draftRid) : gl.valid(draftRid) == false {
+        console.println("Draft invalid → ABORTED");
+    }
+
+    // Step 3: Refine based on critique
+    rule +!refine(string critiqueRid) : gl.valid(critiqueRid) == true {
+        console.println("Critique received (valid) → refining");
+        string finalRid = gl.ask("agent1", "refine", "Improve the summary based on feedback");
+        !accept_final(finalRid);
+    }
+
+    rule +!refine(string critiqueRid) : gl.valid(critiqueRid) == false {
+        console.println("Critique invalid → ABORTED");
+    }
+
+    // Step 4: Accept the refined version
+    rule +!accept_final(string finalRid) : gl.valid(finalRid) == true {
+        string cid = gl.candidate(finalRid);
+        gl.accept(cid);
+        console.println("Draft → Critique → Refine pipeline complete → ACCEPTED");
+    }
+
+    rule +!accept_final(string finalRid) : gl.valid(finalRid) == false {
+        console.println("Final refinement invalid → ABORTED");
+    }
+}

@@ -1,0 +1,5 @@
+MAS pattern_3_confidence_threshold {
+    agents:
+        main;
+    aslSourcePath: "src/main/asl";
+}

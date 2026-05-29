@@ -1,0 +1,9 @@
+MAS pattern_7_majority_voting {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

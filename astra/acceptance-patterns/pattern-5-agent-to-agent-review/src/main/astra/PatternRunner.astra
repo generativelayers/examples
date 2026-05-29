@@ -1,0 +1,43 @@
+/**
+ * Pattern 5: Agent-to-Agent Review — ASTRA (Runner)
+ *
+ * Generates LLM output, then sends the label to a peer reviewer
+ * agent for approval via FIPA messaging.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    types review_types {
+        formula review_request(string, string);
+        formula review_approved(string);
+        formula review_rejected(string, string);
+    }
+
+    rule +!main(list args) {
+        gl.use_provider();
+        string rid = gl.ask("agent1", "classify", "Classify: tomato");
+        !request_review(rid);
+    }
+
+    rule +!request_review(string rid) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
+        string cid = gl.candidate(rid);
+        console.println("[Runner] Sending '" + label + "' to reviewer...");
+        send(request, "reviewer", review_request(label, cid));
+    }
+
+    rule +!request_review(string rid) : gl.valid(rid) == false {
+        console.println("[Runner] Invalid output → SKIPPED");
+    }
+
+    rule @message(inform, string sender, review_approved(string cid)) {
+        gl.accept(cid);
+        console.println("[Runner] Peer approved → ACCEPTED");
+    }
+
+    rule @message(inform, string sender, review_rejected(string cid, string reason)) {
+        gl.reject(cid);
+        console.println("[Runner] Peer rejected: " + reason + " → REJECTED");
+    }
+}

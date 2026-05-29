@@ -1,0 +1,27 @@
+/**
+ * Pattern 1: Simple Validation — ASTRA
+ *
+ * The simplest governance pattern: accept valid output, reject invalid.
+ * Demonstrates the fundamental valid/invalid context-guard branching.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    rule +!main(list args) {
+        console.println("=== Pattern 1: Simple Validation ===");
+        gl.use_provider();
+        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        !decide(rid);
+    }
+
+    rule +!decide(string rid) : gl.valid(rid) == true {
+        string cid = gl.candidate(rid);
+        gl.accept(cid);
+        console.println("Valid output → ACCEPTED: " + gl.field(rid, "label"));
+    }
+
+    rule +!decide(string rid) : gl.valid(rid) == false {
+        console.println("Invalid output → REJECTED");
+    }
+}

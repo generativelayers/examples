@@ -1,0 +1,9 @@
+MAS pattern_8_iterative_refinement {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

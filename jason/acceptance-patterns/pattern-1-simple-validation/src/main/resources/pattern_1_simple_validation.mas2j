@@ -1,0 +1,5 @@
+MAS pattern_1_simple_validation {
+    agents:
+        main;
+    aslSourcePath: "src/main/asl";
+}

@@ -1,0 +1,28 @@
+/**
+ * Pattern 5: Agent-to-Agent Review — ASTRA (Reviewer)
+ *
+ * Pure BDI reviewer — no LLM involved.
+ * Checks the label against its own beliefs and responds.
+ */
+agent Reviewer {
+    module Console console;
+
+    types review_types {
+        formula review_request(string, string);
+        formula review_approved(string);
+        formula review_rejected(string, string);
+        formula known_food(string);
+    }
+
+    initial known_food("fruit"), known_food("vegetable"), known_food("grain");
+
+    rule @message(request, string sender, review_request(string label, string cid)) : known_food(label) {
+        console.println("[Reviewer] '" + label + "' is known → APPROVED");
+        send(inform, sender, review_approved(cid));
+    }
+
+    rule @message(request, string sender, review_request(string label, string cid)) : ~known_food(label) {
+        console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
+        send(inform, sender, review_rejected(cid, "not in knowledge base"));
+    }
+}

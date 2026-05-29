@@ -1,0 +1,44 @@
+/**
+ * Pattern 6: Belief Consistency — ASTRA
+ *
+ * Compares the LLM output against existing beliefs.
+ * Matches → confirm, Contradicts → reject, New → adopt.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    types pattern_types {
+        formula category(string, string);
+    }
+
+    initial category("apple", "fruit"), category("carrot", "vegetable");
+
+    rule +!main(list args) {
+        console.println("=== Pattern 6: Belief Consistency ===");
+        gl.use_provider();
+        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        !decide(rid);
+    }
+
+    rule +!decide(string rid) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
+        string cid = gl.candidate(rid);
+        !check_belief(cid, "apple", label);
+    }
+
+    rule +!check_belief(string cid, string item, string label) : category(item, label) {
+        gl.accept(cid);
+        console.println("Matches belief: " + item + " = " + label + " → CONFIRMED");
+    }
+
+    rule +!check_belief(string cid, string item, string label) : category(item, string existing) & existing ~= label {
+        gl.reject(cid);
+        console.println("Contradicts belief! Expected " + existing + " got " + label + " → REJECTED");
+    }
+
+    rule +!check_belief(string cid, string item, string label) : ~category(item, string any) {
+        gl.accept(cid);
+        console.println("No prior belief for " + item + " → NEW KNOWLEDGE: " + label);
+    }
+}

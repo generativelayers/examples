@@ -1,0 +1,45 @@
+/**
+ * Pattern 7: Majority Voting — ASTRA
+ *
+ * Asks 3 providers the same question. Compares labels pairwise.
+ * Accepts only if 2+ providers agree on the same label.
+ */
+agent PatternRunner {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    rule +!main(list args) {
+        console.println("=== Pattern 7: Majority Voting ===");
+        gl.use_provider();
+        string r1 = gl.ask("agent1", "classify", "Classify: tomato");
+        string r2 = gl.ask("agent1", "classify", "Classify: tomato");
+        string r3 = gl.ask("agent1", "classify", "Classify: tomato");
+        string l1 = gl.field(r1, "label");
+        string l2 = gl.field(r2, "label");
+        string l3 = gl.field(r3, "label");
+        console.println("Provider 1: " + l1 + " | Provider 2: " + l2 + " | Provider 3: " + l3);
+        !vote(r1, l1, r2, l2, r3, l3);
+    }
+
+    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l2 {
+        string cid = gl.candidate(r1);
+        gl.accept(cid);
+        console.println("Majority agrees on '" + l1 + "' → ACCEPTED");
+    }
+
+    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l3 {
+        string cid = gl.candidate(r1);
+        gl.accept(cid);
+        console.println("Majority agrees on '" + l1 + "' → ACCEPTED");
+    }
+
+    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l2 == l3 {
+        string cid = gl.candidate(r2);
+        gl.accept(cid);
+        console.println("Majority agrees on '" + l2 + "' → ACCEPTED");
+    }
+
+    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) {
+        console.println("No consensus — all disagree → NO DECISION");
+    }
+}

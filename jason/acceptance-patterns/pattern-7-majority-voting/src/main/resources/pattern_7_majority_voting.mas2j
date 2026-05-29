@@ -1,0 +1,5 @@
+MAS pattern_7_majority_voting {
+    agents:
+        main;
+    aslSourcePath: "src/main/asl";
+}

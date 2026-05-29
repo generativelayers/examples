@@ -1,0 +1,9 @@
+MAS pattern_6_belief_consistency {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

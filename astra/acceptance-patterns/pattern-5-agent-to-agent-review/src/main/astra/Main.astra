@@ -1,0 +1,16 @@
+/**
+ * Pattern 5: Agent-to-Agent Review — ASTRA (Launcher)
+ *
+ * Creates the reviewer and runner agents.
+ */
+agent Main {
+    module Console console;
+    module System S;
+
+    rule +!main(list args) {
+        console.println("=== Pattern 5: Agent-to-Agent Review ===");
+        console.println("");
+        S.createAgent("reviewer", "Reviewer");
+        S.createAgent("runner", "PatternRunner");
+    }
+}

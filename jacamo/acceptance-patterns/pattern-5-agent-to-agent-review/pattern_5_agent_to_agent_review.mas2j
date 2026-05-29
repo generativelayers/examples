@@ -1,0 +1,10 @@
+MAS pattern_5_agent_to_agent_review {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        reviewer  agentArchClass jaca.CAgentArch;
+        main      agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

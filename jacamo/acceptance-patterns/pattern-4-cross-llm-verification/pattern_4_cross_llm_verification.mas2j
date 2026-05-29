@@ -1,0 +1,9 @@
+MAS pattern_4_cross_llm_verification {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        main  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}
