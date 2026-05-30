@@ -11,7 +11,7 @@ agent PatternRunner {
         console.println("=== Pattern 1: Simple Validation ===");
         gl.configure("model", "gpt-oss-120b");
         gl.use_provider("cerebras");
-        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        string rid = gl.ask("agent1", "classify", "Classify: apple", "convo1");
         !decide(rid);
     }
 
