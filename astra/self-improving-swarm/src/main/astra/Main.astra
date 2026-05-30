@@ -1,0 +1,32 @@
+/**
+ * Main — Entry point for the Self-Improving Swarm.
+ *
+ * Spawns the Developer, Tester, and Auditor agents.
+ */
+agent Main {
+    module Console console;
+    module System S;
+
+    rule +!main(list args) {
+        console.println("==================================================");
+        console.println("🌌 STARTING SELF-IMPROVING COGNITIVE SWARM 🌌");
+        console.println("==================================================");
+        console.println("");
+
+        // Spawn the Auditor (ready to accept requests)
+        S.createAgent("auditor", "Auditor");
+        console.println("[Main] Security Auditor agent 'auditor' spawned.");
+
+        // Spawn the Tester (ready to test)
+        S.createAgent("tester", "Tester");
+        console.println("[Main] Automated Tester agent 'tester' spawned.");
+
+        // Spawn the Developer (it will pick up the user stories and begin)
+        S.createAgent("developer", "Developer");
+        console.println("[Main] Developer agent 'developer' spawned.");
+
+        console.println("");
+        console.println("[Main] All agents active. Launching automated software factory...");
+        console.println("");
+    }
+}

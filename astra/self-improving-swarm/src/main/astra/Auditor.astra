@@ -1,0 +1,72 @@
+/**
+ * Auditor Agent (C) — Theoretical Security Analyzer.
+ *
+ * Runs stateless evaluations of candidate Java code using Cerebras (gpt-oss-120b).
+ * Acts as a strict static security inspector auditing for bounds violations and logic bugs.
+ */
+agent Auditor {
+    module gl.adapter.astra.AstraAdapter gl;
+    module Console console;
+
+    types auditor_types {
+        // Domain beliefs
+        formula completed_module(string, string);             // storyId, finalCode
+
+        // FIPA protocols
+        formula security_audit_request(string, string, int);  // storyId, codeText, revision
+        formula security_violation_msg(string, string, int);  // storyId, vulnerabilityInfo, revision
+        formula audit_approved(string, string);               // storyId, finalCode
+        formula module_finalized(string, string);             // storyId, finalCode
+    }
+
+    initial !start();
+
+    rule +!start() {
+        console.println("[Auditor] Initializing security static analyzer...");
+        gl.configure("model", "gemini-2.0-flash");
+        gl.use_provider("gemini");
+    }
+
+
+    // React to FIPA security audit requests from Tester B
+    rule @message(request, string sender, security_audit_request(string storyId, string codeText, int rev)) {
+        console.println("[Auditor] Auditing candidate code (Rev " + rev + ") for security vulnerabilities...");
+
+        // Invoke a stateless GRL ask to run the static security check
+        string prompt = "Act as a strict static security analyzer. Audit this Java code:\n"
+                      + "```java\n" + codeText + "\n```\n\n"
+                      + "Check for input validation, boundary check bypasses, or division-by-zero risks. "
+                      + "In the schema, set 'secure' to true or false. If insecure, describe the issue in 'vulnerability_info'.";
+
+        string rid = gl.invoke("auditor", "security_report", "llm.answer", "ANSWER", prompt, "secure,vulnerability_info");
+        !process_audit_result(storyId, codeText, rid, rev);
+    }
+
+    rule +!process_audit_result(string storyId, string codeText, string rid, int rev) : gl.valid(rid) == true {
+        string secure = gl.field(rid, "secure");
+        string vulnerability = gl.field(rid, "vulnerability_info");
+
+        if (secure == "true") {
+            console.println("[Auditor] ✅ Security Audit PASSED. Code has been verified secure.");
+            
+            // Send final approval back to Developer agent 'developer'
+            console.println("[Auditor] Sending final approval to Developer...");
+            send(inform, "developer", audit_approved(storyId, codeText));
+        } else {
+            console.println("[Auditor] ⚠️ Security violation found: " + vulnerability);
+            console.println("[Auditor] Reporting security alerts to Developer...");
+            send(inform, "developer", security_violation_msg(storyId, vulnerability, rev));
+        }
+    }
+
+    rule +!process_audit_result(string storyId, string codeText, string rid, int rev) : gl.valid(rid) == false {
+        console.println("[Auditor] Security report validation failed. Reporting boundary check violation as fallback.");
+        send(inform, "developer", security_violation_msg(storyId, "Security violation: Missing bounds verification on transaction amounts.", rev));
+    }
+
+    // Sync belief base when Developer broadcasts finalized module
+    rule @message(inform, string sender, module_finalized(string storyId, string finalCode)) {
+        +completed_module(storyId, finalCode);
+        console.println("[Auditor] Synchronized belief base: module '" + storyId + "' is fully completed.");
+    }
+}
