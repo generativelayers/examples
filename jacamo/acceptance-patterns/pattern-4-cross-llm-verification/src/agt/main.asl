@@ -11,18 +11,18 @@
    <- .println("=== Pattern 4: Cross-LLM Verification ===");
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
-      // configure("model", "gemini-2.0-flash");
-      // use_provider("gemini");
-      configure("model", "llama-3.3-70b-versatile");
-      use_provider("groq");
+      configure("model", "gpt-oss-120b");
+      use_provider("cerebras");
       ask("agent1", "classify", "Classify: apple", Rid);
       valid(Rid, IsValid);
       !verify(Rid, IsValid).
 
 +!verify(Rid, true)
+   :  true
    <- field(Rid, "label", Label);
       candidate(Rid, Cid);
-      ask("agent1", "verify", "Is this correct? apple = ", Vrid);
+      .concat("Is this correct? apple = ", Label, Prompt);
+      ask("agent1", "verify", Prompt, Vrid);
       valid(Vrid, VIsValid);
       !compare(Cid, Vrid, VIsValid).
 

@@ -10,10 +10,8 @@ agent PatternRunner {
 
     rule +!main(list args) {
         console.println("=== Pattern 4: Cross-LLM Verification ===");
-        // gl.configure("model", "gemini-2.0-flash");
-        // gl.use_provider("gemini");
-        gl.configure("model", "llama-3.3-70b-versatile");
-        gl.use_provider("groq");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         string rid = gl.ask("agent1", "classify", "Classify: apple");
         !verify(rid);
     }
@@ -21,6 +19,7 @@ agent PatternRunner {
     rule +!verify(string rid) : gl.valid(rid) == true {
         string label = gl.field(rid, "label");
         string cid = gl.candidate(rid);
+        
         string vrid = gl.ask("agent1", "verify", "Is this correct? apple = " + label);
         !compare(cid, vrid);
     }

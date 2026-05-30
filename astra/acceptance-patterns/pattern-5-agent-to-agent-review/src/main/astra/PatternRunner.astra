@@ -14,11 +14,11 @@ agent PatternRunner {
         formula review_rejected(string, string);
     }
 
-    rule +!main(list args) {
-        // gl.configure("model", "gemini-2.0-flash");
-        // gl.use_provider("gemini");
-        gl.configure("model", "llama-3.3-70b-versatile");
-        gl.use_provider("groq");
+    initial !start();
+
+    rule +!start() {
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         string rid = gl.ask("agent1", "classify", "Classify: tomato");
         !request_review(rid);
     }

@@ -15,12 +15,18 @@ agent PatternRunner {
     initial known("fruit"), known("vegetable"), known("grain");
 
     rule +!main(list args) {
-        console.println("=== Pattern 2: Content Inspection ===");
-        // gl.configure("model", "gemini-2.0-flash");
-        // gl.use_provider("gemini");
-        gl.configure("model", "llama-3.3-70b-versatile");
-        gl.use_provider("groq");
-        string rid = gl.ask("agent1", "classify", "Classify: apple");
+        console.println("=== Pattern 2: Content Inspection (RAG Test - Cerebras) ===");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
+        string rid = gl.invoke_with_beliefs(
+            "agent1",
+            "classify",
+            "llm.answer",
+            "ANSWER",
+            "Based on the Agent beliefs, classify: apple",
+            "label,confidence",
+            "category(apple, fruit)"
+        );
         !decide(rid);
     }
 

@@ -11,10 +11,8 @@ category("apple", "fruit"). category("carrot", "vegetable").
 
 +!start
    <- .println("=== Pattern 6: Belief Consistency ===");
-      // gl.configure("model", "gemini-2.0-flash");
-      // gl.use_provider("gemini");
-      gl.configure("model", "llama-3.3-70b-versatile");
-      gl.use_provider("groq");
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
       gl.ask("agent1", "classify", "Classify: apple", Rid);
       !decide(Rid).
 

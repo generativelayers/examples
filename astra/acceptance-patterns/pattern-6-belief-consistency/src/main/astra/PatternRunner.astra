@@ -16,10 +16,8 @@ agent PatternRunner {
 
     rule +!main(list args) {
         console.println("=== Pattern 6: Belief Consistency ===");
-        // gl.configure("model", "gemini-2.0-flash");
-        // gl.use_provider("gemini");
-        gl.configure("model", "llama-3.3-70b-versatile");
-        gl.use_provider("groq");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         string rid = gl.ask("agent1", "classify", "Classify: apple");
         !decide(rid);
     }

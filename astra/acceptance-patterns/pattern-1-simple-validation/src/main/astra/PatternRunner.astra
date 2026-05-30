@@ -9,8 +9,8 @@ agent PatternRunner {
 
     rule +!main(list args) {
         console.println("=== Pattern 1: Simple Validation ===");
-        gl.configure("model", "llama-3.3-70b-versatile");
-        gl.use_provider("groq");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         string rid = gl.ask("agent1", "classify", "Classify: apple");
         !decide(rid);
     }

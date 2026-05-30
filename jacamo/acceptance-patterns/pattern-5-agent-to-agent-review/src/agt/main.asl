@@ -11,10 +11,8 @@
    <- .println("=== Pattern 5: Agent-to-Agent Review ===");
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
-      // configure("model", "gemini-2.0-flash");
-      // use_provider("gemini");
-      configure("model", "llama-3.3-70b-versatile");
-      use_provider("groq");
+      configure("model", "gpt-oss-120b");
+      use_provider("cerebras");
       ask("agent1", "classify", "Classify: tomato", Rid);
       valid(Rid, IsValid);
       !request_review(Rid, IsValid).

@@ -16,10 +16,8 @@
    <- .println("=== Generative Layer Invalid Output Rejection Demo ===");
       .println("");
 
-      // Configure provider from environment (default: fake)
-      gl.configure("model", "llama-3.3-70b-versatile");
-
-      gl.use_provider("groq");
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
 
       // Attempt 1 β€” invoke with strict required fields (missing 'category' will trigger validation failure)
       !tryClassify(

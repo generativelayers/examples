@@ -13,10 +13,8 @@ known("fruit"). known("vegetable"). known("grain").
    <- .println("=== Pattern 2: Content Inspection ===");
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
-      // configure("model", "gemini-2.0-flash");
-      // use_provider("gemini");
-      configure("model", "llama-3.3-70b-versatile");
-      use_provider("groq");
+      configure("model", "gpt-oss-120b");
+      use_provider("cerebras");
       ask("agent1", "classify", "Classify: apple", Rid);
       valid(Rid, IsValid);
       !decide(Rid, IsValid).

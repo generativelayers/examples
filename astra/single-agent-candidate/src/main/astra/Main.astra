@@ -22,9 +22,9 @@ agent Main {
         console.println("=== Generative Layer Single Agent Candidate Demo ===");
         console.println("");
         console.println("[Layer] Available providers: " + gl.providers());
-        gl.configure("model", "llama-3.3-70b-versatile");
+        gl.configure("model", "gemini-2.5-flash");
 
-        gl.use_provider("groq");
+        gl.use_provider("gemini");
         !classify_food("apple");
     }
 

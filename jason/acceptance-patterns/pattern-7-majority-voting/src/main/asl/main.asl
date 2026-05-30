@@ -9,10 +9,8 @@
 
 +!start
    <- .println("=== Pattern 7: Majority Voting ===");
-      // gl.configure("model", "gemini-2.0-flash");
-      // gl.use_provider("gemini");
-      gl.configure("model", "llama-3.3-70b-versatile");
-      gl.use_provider("groq");
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
       gl.ask("agent1", "classify", "Classify: tomato", R1);
       gl.ask("agent1", "classify", "Classify: tomato", R2);
       gl.ask("agent1", "classify", "Classify: tomato", R3);

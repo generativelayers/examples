@@ -9,11 +9,9 @@
 
 +!start
    <- .println("=== Pattern 3: Confidence Threshold ===");
-      // gl.configure("model", "gemini-2.0-flash");
-      // gl.use_provider("gemini");
-      gl.configure("model", "llama-3.3-70b-versatile");
-      gl.use_provider("groq");
-      gl.ask("agent1", "classify", "Classify: apple", Rid);
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
+      gl.invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify: apple", "label,confidence", Rid);
       !decide(Rid).
 
 +!decide(Rid)

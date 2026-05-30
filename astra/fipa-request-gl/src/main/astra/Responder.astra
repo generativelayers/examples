@@ -30,10 +30,8 @@ agent Responder extends GLOntology {
         console.println("[Responder]   prompt     = " + prompt);
 
         // Step 1 — Configure provider
-        // Auto-detect from GL_PROVIDER / GL_MODEL env vars (default: fake)
-        gl.configure("model", "llama-3.3-70b-versatile");
-
-        gl.use_provider("groq");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
 
         // Step 2 — Invoke generative body
         string resultId = gl.invoke(

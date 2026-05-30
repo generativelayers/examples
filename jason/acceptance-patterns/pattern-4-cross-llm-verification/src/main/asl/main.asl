@@ -9,10 +9,8 @@
 
 +!start
    <- .println("=== Pattern 4: Cross-LLM Verification ===");
-      // gl.configure("model", "gemini-2.0-flash");
-      // gl.use_provider("gemini");
-      gl.configure("model", "llama-3.3-70b-versatile");
-      gl.use_provider("groq");
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
       gl.ask("agent1", "classify", "Classify: apple", Rid);
       !verify(Rid).
 
@@ -20,7 +18,8 @@
    :  gl.valid(Rid, true)
    <- gl.field(Rid, "label", Label);
       gl.candidate(Rid, Cid);
-      gl.ask("agent1", "verify", "Is this correct? apple = ", Vrid);
+      .concat("Is this correct? apple = ", Label, Prompt);
+      gl.ask("agent1", "verify", Prompt, Vrid);
       !compare(Cid, Vrid).
 
 +!compare(Cid, Vrid)

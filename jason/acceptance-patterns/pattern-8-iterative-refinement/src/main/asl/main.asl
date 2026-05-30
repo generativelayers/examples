@@ -10,10 +10,8 @@
 
 +!start
    <- .println("=== Pattern 8: Iterative Refinement ===");
-      // gl.configure("model", "gemini-2.0-flash");
-      // gl.use_provider("gemini");
-      gl.configure("model", "llama-3.3-70b-versatile");
-      gl.use_provider("groq");
+      gl.configure("model", "gpt-oss-120b");
+      gl.use_provider("cerebras");
       // Step 1: Generate a draft
       gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", DraftRid);
       !critique(DraftRid).

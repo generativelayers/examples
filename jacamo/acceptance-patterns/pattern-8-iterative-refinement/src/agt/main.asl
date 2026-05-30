@@ -12,10 +12,8 @@
    <- .println("=== Pattern 8: Iterative Refinement ===");
       makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId);
-      // configure("model", "gemini-2.0-flash");
-      // use_provider("gemini");
-      configure("model", "llama-3.3-70b-versatile");
-      use_provider("groq");
+      configure("model", "gpt-oss-120b");
+      use_provider("cerebras");
       // Step 1: Generate a draft
       ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", DraftRid);
       valid(DraftRid, DraftValid);
