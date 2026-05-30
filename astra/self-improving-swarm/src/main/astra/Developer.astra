@@ -7,9 +7,13 @@
  *
  * Acts like a human programmer by "re-thinking" its beliefs on failure,
  * learning general guidelines, and applying those guidelines to subsequent code generations.
+ *
+ * 🧬 EXTRACTED CAPABILITY: Reflective Self-Modification
+ * Reads and rewrites its own ASTRA source code at runtime to evolve its cognitive rules!
  */
 agent Developer {
     module gl.adapter.astra.AstraAdapter gl;
+    module gl.examples.FileModule files;
     module Console console;
 
     types developer_types {
@@ -138,6 +142,9 @@ agent Developer {
         console.println("[Developer] Broadcasting finalized module to all agents in the swarm...");
         send(inform, "tester", module_finalized(storyId, finalCode));
         send(inform, "auditor", module_finalized(storyId, finalCode));
+
+        // Trigger the ultimate human-like self-development: dynamic self-modification!
+        !trigger_reflective_self_modification();
     }
 
     // ── Self-Correcting / Self-Improving / Belief Revision Plans ───
@@ -180,5 +187,50 @@ agent Developer {
         int nextRev = rev + 1;
         -+active_revision(nextRev);
         !synthesize_code_with_guidelines(storyId, nextRev);
+    }
+
+    // ── 🧬 Reflective Self-Modification (Evolving Own Code) ─────────
+
+    rule +!trigger_reflective_self_modification() {
+        console.println("[Developer] 🧬 Initiating Reflective Self-Modification...");
+        console.println("[Developer] Reading our own ASTRA source code from disk...");
+
+        string myFilePath = "src/main/astra/Developer.astra";
+        string mySource = files.read(myFilePath);
+
+        if (mySource == "") {
+            console.println("[Developer] Error: Could not read source code file. Skipping self-modification.");
+        } else {
+            console.println("[Developer] Source code read successfully (Length: " + mySource.length() + ").");
+            console.println("[Developer] Calling GRL to synthesize new ASTRA rules to add to our plan-base...");
+
+            string prompt = "We have this ASTRA agent source code:\n\n" + mySource + "\n\n"
+                          + "Add a new rule to the rule block: 'rule +!log_scientific_milestone() { console.println(\"🧬 Cognitive milestone achieved! Evolved runtime plans.\"); }' and return the updated complete ASTRA code inside 'code' of the schema.";
+
+            string rid = gl.invoke("developer", "self_mod", "llm.answer", "ANSWER", prompt, "code");
+            !write_self_modification(myFilePath, rid);
+        }
+    }
+
+    rule +!write_self_modification(string filePath, string rid) : gl.valid(rid) == true {
+        string updatedCode = gl.field(rid, "code");
+        
+        console.println("[Developer] 🧬 Self-modification ASTRA code synthesized successfully.");
+        console.println("[Developer] Writing our evolved plan-base back to disk: " + filePath);
+        
+        boolean success = files.write(filePath, updatedCode);
+        
+        if (success == true) {
+            console.println("==========================================================");
+            console.println("🧬 RUNTIME plan-BASE EVOLVED SUCCESSFULLY!");
+            console.println("Agent 'Developer' has successfully rewritten its own source code.");
+            console.println("==========================================================");
+        } else {
+            console.println("[Developer] Failed to write updated source code to disk.");
+        }
+    }
+
+    rule +!write_self_modification(string filePath, string rid) : gl.valid(rid) == false {
+        console.println("[Developer] GRL validation failed on self-modification response. Skipping.");
     }
 }
