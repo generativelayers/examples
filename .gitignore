@@ -12,3 +12,7 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+
+# Self-evolving swarm (NEVER push to GitHub)
+**/self-evolving-swarm*
+
