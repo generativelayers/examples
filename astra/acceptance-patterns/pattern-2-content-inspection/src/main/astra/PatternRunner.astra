@@ -3,21 +3,29 @@
  *
  * After validation, inspects the LLM output against the agent's
  * own knowledge base. Accepts only if the label is a known category.
+ * Demonstrates: inference rules, negation-as-failure (~), beliefs as knowledge.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
+    constant string MODEL = "gpt-oss-120b";
+    constant string PROVIDER = "cerebras";
+
     types pattern_types {
         formula known(string);
+        formula is_known_label(string, boolean);
     }
 
     initial known("fruit"), known("vegetable"), known("grain");
 
+    // Inference: derive whether a label is a known category
+    inference is_known_label(string L, true) :- known(L);
+
     rule +!main(list args) {
-        console.println("=== Pattern 2: Content Inspection (RAG Test - Cerebras) ===");
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
+        console.println("=== Pattern 2: Content Inspection (RAG Test) ===");
+        gl.configure("model", MODEL);
+        gl.use_provider(PROVIDER);
         string rid = gl.invoke_with_beliefs(
             "agent1",
             "classify",
@@ -36,11 +44,17 @@ agent PatternRunner {
         !check_content(cid, label);
     }
 
+    rule +!decide(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // Known category — accept (inference satisfies known(label))
     rule +!check_content(string cid, string label) : known(label) {
         gl.accept(cid);
         console.println("Known category '" + label + "' → ACCEPTED");
     }
 
+    // Unknown category — reject (negation-as-failure)
     rule +!check_content(string cid, string label) : ~known(label) {
         gl.reject(cid);
         console.println("Unknown category '" + label + "' → REJECTED");

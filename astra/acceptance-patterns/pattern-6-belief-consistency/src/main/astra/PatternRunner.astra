@@ -3,21 +3,29 @@
  *
  * Compares the LLM output against existing beliefs.
  * Matches → confirm, Contradicts → reject, New → adopt.
+ * Demonstrates: inference rules, negation-as-failure (~), belief querying.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
+    constant string MODEL = "gpt-oss-120b";
+    constant string PROVIDER = "cerebras";
+
     types pattern_types {
         formula category(string, string);
+        formula has_prior_belief(string, boolean);
     }
 
     initial category("apple", "fruit"), category("carrot", "vegetable");
 
+    // Inference: derive whether a prior belief exists for an item
+    inference has_prior_belief(string item, true) :- category(item, string _);
+
     rule +!main(list args) {
         console.println("=== Pattern 6: Belief Consistency ===");
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
+        gl.configure("model", MODEL);
+        gl.use_provider(PROVIDER);
         string rid = gl.ask("agent1", "classify", "Classify: apple");
         !decide(rid);
     }
@@ -28,18 +36,27 @@ agent PatternRunner {
         !check_belief(cid, "apple", label);
     }
 
+    rule +!decide(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // Consistent with existing belief — confirm
     rule +!check_belief(string cid, string item, string label) : category(item, label) {
         gl.accept(cid);
         console.println("Matches belief: " + item + " = " + label + " → CONFIRMED");
     }
 
-    rule +!check_belief(string cid, string item, string label) : category(item, string existing) & existing ~= label {
+    // Contradicts existing belief — reject
+    // Uses negation pattern: has a belief for item, but not with this label
+    rule +!check_belief(string cid, string item, string label) : category(item, string existing) & ~category(item, label) {
         gl.reject(cid);
         console.println("Contradicts belief! Expected " + existing + " got " + label + " → REJECTED");
     }
 
+    // No prior belief — adopt as new knowledge (negation-as-failure)
     rule +!check_belief(string cid, string item, string label) : ~category(item, string any) {
         gl.accept(cid);
+        +category(item, label);
         console.println("No prior belief for " + item + " → NEW KNOWLEDGE: " + label);
     }
 }

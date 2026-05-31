@@ -2,27 +2,43 @@
  * Pattern 1: Simple Validation — ASTRA
  *
  * Asks the LLM to classify input; accepts if validation passes.
+ * Demonstrates: inference rules, constants, practical reasoning.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
+    constant string MODEL = "gpt-oss-120b";
+    constant string PROVIDER = "cerebras";
+
+    types pattern_types {
+        formula validated(boolean);
+        formula classified(string);
+    }
+
+    // Inference: the result is validated when gl.valid returns true
+    // This derived belief can be queried in any context condition.
+    inference validated(true) :- classified(string label);
+
     rule +!main(list args) {
         console.println("=== Pattern 1: Simple Validation ===");
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
+        gl.configure("model", MODEL);
+        gl.use_provider(PROVIDER);
         string rid = gl.ask("agent1", "classify", "Classify: apple", "convo1");
         !decide(rid);
     }
 
+    // Valid output — accept via practical reasoning
     rule +!decide(string rid) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
         string cid = gl.candidate(rid);
         gl.accept(cid);
-        string label = gl.field(rid, "label");
+        +classified(label);
         console.println("Valid output → ACCEPTED: " + label);
     }
 
-    rule +!decide(string rid) : gl.valid(rid) == false {
+    // Invalid output — reject (catch-all)
+    rule +!decide(string rid) {
         console.println("Invalid output → REJECTED");
     }
 }

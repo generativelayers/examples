@@ -3,6 +3,7 @@
  *
  * Pure BDI reviewer — no LLM involved.
  * Checks the label against its own beliefs and responds.
+ * Demonstrates: inference rules, negation-as-failure (~), FIPA messaging.
  */
 agent Reviewer {
     module Console console;
@@ -12,15 +13,21 @@ agent Reviewer {
         formula review_approved(string);
         formula review_rejected(string, string);
         formula known_food(string);
+        formula is_acceptable(string, boolean);
     }
 
     initial known_food("fruit"), known_food("vegetable"), known_food("grain");
 
+    // Inference: derive whether a label is acceptable for review
+    inference is_acceptable(string L, true) :- known_food(L);
+
+    // Known food — approve (practical reasoning: specific rule first)
     rule @message(request, string sender, review_request(string label, string cid)) : known_food(label) {
         console.println("[Reviewer] '" + label + "' is known → APPROVED");
         send(inform, sender, review_approved(cid));
     }
 
+    // Unknown food — reject (negation-as-failure)
     rule @message(request, string sender, review_request(string label, string cid)) : ~known_food(label) {
         console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
         send(inform, sender, review_rejected(cid, "not in knowledge base"));

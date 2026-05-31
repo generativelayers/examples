@@ -4,51 +4,74 @@
  * Three-step pipeline: Draft → Critique → Refine → Accept.
  * Each step goes through the governance pipeline.
  * Only the final refined version is accepted.
+ * Demonstrates: constants, practical reasoning for pipeline steps,
+ * inference for pipeline state tracking.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
+    constant string MODEL = "gpt-oss-120b";
+    constant string PROVIDER = "cerebras";
+
+    types pattern_types {
+        formula pipeline_step(string);
+        formula pipeline_complete(boolean);
+    }
+
+    // Inference: the pipeline is complete when step is "accepted"
+    inference pipeline_complete(true) :- pipeline_step("accepted");
+
     rule +!main(list args) {
         console.println("=== Pattern 8: Iterative Refinement ===");
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
+        gl.configure("model", MODEL);
+        gl.use_provider(PROVIDER);
 
         // Step 1: Generate a draft
+        +pipeline_step("drafting");
         string draftRid = gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis");
         !critique(draftRid);
     }
 
-    // Step 2: Critique the draft
+    // Step 2: Critique the draft — valid
     rule +!critique(string draftRid) : gl.valid(draftRid) == true {
+        -+pipeline_step("critiquing");
         console.println("Draft generated (valid) → requesting critique");
         string critiqueRid = gl.ask("agent1", "critique", "Critique the summary of photosynthesis");
         !refine(critiqueRid);
     }
 
-    rule +!critique(string draftRid) : gl.valid(draftRid) == false {
+    // Step 2: Draft invalid — abort
+    rule +!critique(string draftRid) {
+        -+pipeline_step("draft_failed");
         console.println("Draft invalid → ABORTED");
     }
 
-    // Step 3: Refine based on critique
+    // Step 3: Refine based on critique — valid
     rule +!refine(string critiqueRid) : gl.valid(critiqueRid) == true {
+        -+pipeline_step("refining");
         console.println("Critique received (valid) → refining");
         string finalRid = gl.ask("agent1", "refine", "Improve the summary based on feedback");
         !accept_final(finalRid);
     }
 
-    rule +!refine(string critiqueRid) : gl.valid(critiqueRid) == false {
+    // Step 3: Critique invalid — abort
+    rule +!refine(string critiqueRid) {
+        -+pipeline_step("critique_failed");
         console.println("Critique invalid → ABORTED");
     }
 
-    // Step 4: Accept the refined version
+    // Step 4: Accept the refined version — valid
     rule +!accept_final(string finalRid) : gl.valid(finalRid) == true {
         string cid = gl.candidate(finalRid);
         gl.accept(cid);
+        -+pipeline_step("accepted");
         console.println("Draft → Critique → Refine pipeline complete → ACCEPTED");
     }
 
-    rule +!accept_final(string finalRid) : gl.valid(finalRid) == false {
+    // Step 4: Final refinement invalid — abort
+    rule +!accept_final(string finalRid) {
+        -+pipeline_step("refine_failed");
         console.println("Final refinement invalid → ABORTED");
     }
 }

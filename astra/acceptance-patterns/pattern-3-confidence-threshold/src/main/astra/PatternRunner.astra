@@ -3,15 +3,28 @@
  *
  * Extracts the confidence field and makes a tiered decision:
  * high (1.0) → accept, low (0.0) → reject, otherwise → escalate.
+ * Demonstrates: constants, practical reasoning for tiered decisions.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
+    constant string MODEL = "gpt-oss-120b";
+    constant string PROVIDER = "cerebras";
+    constant string HIGH_CONFIDENCE = "1.0";
+    constant string LOW_CONFIDENCE = "0.0";
+
+    types pattern_types {
+        formula confidence_tier(string);
+    }
+
+    // Inference: derive the confidence tier from the raw value
+    inference confidence_tier("high") :- confidence_tier("high");
+
     rule +!main(list args) {
         console.println("=== Pattern 3: Confidence Threshold ===");
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
+        gl.configure("model", MODEL);
+        gl.use_provider(PROVIDER);
         string rid = gl.invoke(
             "agent1",
             "classify",
@@ -29,16 +42,23 @@ agent PatternRunner {
         !assess(cid, conf);
     }
 
-    rule +!assess(string cid, string conf) : conf == "1.0" {
+    rule +!decide(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // High confidence — accept immediately
+    rule +!assess(string cid, string conf) : conf == HIGH_CONFIDENCE {
         gl.accept(cid);
-        console.println("High confidence (1.0) → ACCEPTED");
+        console.println("High confidence (" + HIGH_CONFIDENCE + ") → ACCEPTED");
     }
 
-    rule +!assess(string cid, string conf) : conf == "0.0" {
+    // Low confidence — reject
+    rule +!assess(string cid, string conf) : conf == LOW_CONFIDENCE {
         gl.reject(cid);
-        console.println("Low confidence (0.0) → REJECTED");
+        console.println("Low confidence (" + LOW_CONFIDENCE + ") → REJECTED");
     }
 
+    // Medium confidence — escalate (catch-all)
     rule +!assess(string cid, string conf) {
         console.println("Medium confidence (" + conf + ") → ESCALATING");
     }
