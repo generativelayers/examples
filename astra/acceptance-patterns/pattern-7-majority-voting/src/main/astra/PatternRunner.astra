@@ -3,7 +3,8 @@
  *
  * Asks 3 providers the same question. Compares labels pairwise.
  * Accepts only if 2+ providers agree on the same label.
- * Demonstrates: constants, practical reasoning for pairwise comparison.
+ * Demonstrates: constants, inference, query(), -+ atomic replace,
+ * practical reasoning for pairwise comparison.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
@@ -14,8 +15,15 @@ agent PatternRunner {
     constant int REQUIRED_VOTES = 2;
 
     types pattern_types {
-        formula vote_result(string, int);
+        formula vote_count(int);
+        formula consensus_label(string);
+        formula has_consensus(boolean);
     }
+
+    initial vote_count(0);
+
+    // Inference: consensus reached when we have a consensus_label
+    inference has_consensus(true) :- consensus_label(string _);
 
     rule +!main(list args) {
         console.println("=== Pattern 7: Majority Voting ===");
@@ -35,6 +43,9 @@ agent PatternRunner {
     rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l2 {
         string cid = gl.candidate(r1);
         gl.accept(cid);
+        +consensus_label(l1);
+        query(vote_count(int count));
+        -+vote_count(count + 2);
         console.println("Majority agrees on '" + l1 + "' (1&2) → ACCEPTED");
     }
 
@@ -42,6 +53,9 @@ agent PatternRunner {
     rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l3 {
         string cid = gl.candidate(r1);
         gl.accept(cid);
+        +consensus_label(l1);
+        query(vote_count(int count));
+        -+vote_count(count + 2);
         console.println("Majority agrees on '" + l1 + "' (1&3) → ACCEPTED");
     }
 
@@ -49,11 +63,15 @@ agent PatternRunner {
     rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l2 == l3 {
         string cid = gl.candidate(r2);
         gl.accept(cid);
+        +consensus_label(l2);
+        query(vote_count(int count));
+        -+vote_count(count + 2);
         console.println("Majority agrees on '" + l2 + "' (2&3) → ACCEPTED");
     }
 
     // No consensus — all disagree (catch-all)
     rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) {
-        console.println("No consensus — all disagree → NO DECISION");
+        query(vote_count(int count));
+        console.println("No consensus — all disagree (votes: " + count + ") → NO DECISION");
     }
 }
