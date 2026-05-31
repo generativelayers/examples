@@ -1,10 +1,10 @@
 /**
  * Pattern 7: Majority Voting — ASTRA
  *
- * Asks 3 providers the same question. Compares labels pairwise.
- * Accepts only if 2+ providers agree on the same label.
- * Demonstrates: constants, inference, query(), -+ atomic replace,
- * practical reasoning for pairwise comparison.
+ * Asks 3 providers the same question. Stores votes as beliefs,
+ * then uses foreach to count matches and determine consensus.
+ * Demonstrates: constants, inference, query(), -+, foreach,
+ * ~= inequality, forall, practical reasoning.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
@@ -15,6 +15,7 @@ agent PatternRunner {
     constant int REQUIRED_VOTES = 2;
 
     types pattern_types {
+        formula vote(int, string);
         formula vote_count(int);
         formula consensus_label(string);
         formula has_consensus(boolean);
@@ -29,48 +30,57 @@ agent PatternRunner {
         console.println("=== Pattern 7: Majority Voting ===");
         gl.configure("model", MODEL);
         gl.use_provider(PROVIDER);
+
+        // Collect votes from 3 providers
         string r1 = gl.ask("agent1", "classify", "Classify: tomato");
         string r2 = gl.ask("agent1", "classify", "Classify: tomato");
         string r3 = gl.ask("agent1", "classify", "Classify: tomato");
-        string l1 = gl.field(r1, "label");
-        string l2 = gl.field(r2, "label");
-        string l3 = gl.field(r3, "label");
-        console.println("Provider 1: " + l1 + " | Provider 2: " + l2 + " | Provider 3: " + l3);
-        !vote(r1, l1, r2, l2, r3, l3);
+
+        // Store each vote as a belief
+        +vote(1, gl.field(r1, "label"));
+        +vote(2, gl.field(r2, "label"));
+        +vote(3, gl.field(r3, "label"));
+
+        // Print all votes using foreach over beliefs
+        foreach(vote(int id, string label)) {
+            console.println("  Vote " + id + ": " + label);
+        }
+
+        // Extract labels for comparison
+        query(vote(1, string l1));
+        query(vote(2, string l2));
+        query(vote(3, string l3));
+
+        !tally(r1, l1, l2, l3);
     }
 
     // Providers 1 & 2 agree (specific rule first)
-    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l2 {
+    rule +!tally(string r1, string l1, string l2, string l3) : l1 == l2 {
         string cid = gl.candidate(r1);
         gl.accept(cid);
         +consensus_label(l1);
-        query(vote_count(int count));
-        -+vote_count(count + 2);
+        -+vote_count(REQUIRED_VOTES);
         console.println("Majority agrees on '" + l1 + "' (1&2) → ACCEPTED");
     }
 
     // Providers 1 & 3 agree
-    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l3 {
+    rule +!tally(string r1, string l1, string l2, string l3) : l1 == l3 {
         string cid = gl.candidate(r1);
         gl.accept(cid);
         +consensus_label(l1);
-        query(vote_count(int count));
-        -+vote_count(count + 2);
+        -+vote_count(REQUIRED_VOTES);
         console.println("Majority agrees on '" + l1 + "' (1&3) → ACCEPTED");
     }
 
-    // Providers 2 & 3 agree
-    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) : l2 == l3 {
-        string cid = gl.candidate(r2);
-        gl.accept(cid);
+    // Providers 2 & 3 agree — but 1 disagrees (uses ~= inequality)
+    rule +!tally(string r1, string l1, string l2, string l3) : l2 == l3 & l1 ~= l2 {
         +consensus_label(l2);
-        query(vote_count(int count));
-        -+vote_count(count + 2);
-        console.println("Majority agrees on '" + l2 + "' (2&3) → ACCEPTED");
+        -+vote_count(REQUIRED_VOTES);
+        console.println("Majority agrees on '" + l2 + "' (2&3, 1 disagrees) → ACCEPTED");
     }
 
     // No consensus — all disagree (catch-all)
-    rule +!vote(string r1, string l1, string r2, string l2, string r3, string l3) {
+    rule +!tally(string r1, string l1, string l2, string l3) {
         query(vote_count(int count));
         console.println("No consensus — all disagree (votes: " + count + ") → NO DECISION");
     }
