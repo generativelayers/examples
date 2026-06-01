@@ -1,22 +1,11 @@
-/**
- * Pattern 7: Majority Voting — Practical Reasoning Style
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +votes_collected(true) : ~consensus_reached → !consensus
- *   P2 Means-End:       +!consensus → tally → ?consensus
- *   P2 Serendipity:     +!consensus : consensus → done
- *   P4 Decomposition:   !consensus decomposes to !tally
- *   P5 Recovery:        -!consensus → log failure
- *   P7 Domain Model:    inference consensus :- consensus_label;
- *                        inference votes_collected :- 3 votes exist
- *   Also: foreach, ~= inequality, query(), -+
- */
+// Pipeline: main → !configured → !votes_collected → !vote_cast(1,2,3) → !tallied → ?consensus
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
+        formula configured(boolean);
         formula vote(int, string);
         formula votes_collected(boolean);
         formula consensus_label(string);
@@ -25,70 +14,73 @@ agent PatternRunner {
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // DOMAIN MODEL (Principle 7)
+    // DOMAIN MODEL
     inference consensus_reached(true) :- consensus_label(string _);
 
-    // INITIAL: collect votes as beliefs
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
-        console.println("=== Pattern 7: Majority Voting ===");
-        gl.configure("model", m);
-        gl.use_provider(p);
-
-        // Store each vote as a belief
-        +vote(1, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
-        +vote(2, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
-        +vote(3, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
-
-        // Print votes via foreach
-        foreach(vote(int id, string label)) {
-            console.println("  Vote " + id + ": " + label);
-        }
-
-        // Signal that voting is complete
-        +votes_collected(true);
-    }
-
-    // DELIBERATION (Principle 1) — votes collected, need consensus
-    rule +votes_collected(true) : ~consensus_reached(true) {
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !votes_collected(true);
         !consensus_reached(true);
     }
 
-    // SERENDIPITY (Principle 2) — already have consensus
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    // DECOMPOSITION: collect = cast 3 votes
+    rule +!votes_collected(boolean x) {
+        !vote_cast(1);
+        !vote_cast(2);
+        !vote_cast(3);
+        foreach(vote(int id, string label)) {
+            console.println("  Vote " + id + ": " + label);
+        }
+    }
+
+    // ACHIEVEMENT: cast a single vote (one action)
+    rule +!vote_cast(int id) {
+        +vote(id, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
+    }
+
+    // SERENDIPITY
     rule +!consensus_reached(boolean x) : consensus_reached(true) {
         query(consensus_label(string winner));
         console.println("Already have consensus: " + winner);
     }
 
-    // DECOMPOSITION (Principle 4) — decompose into tally
+    // DECOMPOSITION: tally the votes
     rule +!consensus_reached(boolean x) : vote(1, string l1) & vote(2, string l2) & vote(3, string l3) {
-        !tally(l1, l2, l3);
+        !tallied(l1, l2, l3);
         ?consensus_reached(true);
     }
 
-    // ACHIEVEMENT: 1 & 2 agree (Principle 2)
-    rule +!tally(string l1, string l2, string l3) : l1 == l2 {
+    // ACHIEVEMENT: 1 & 2 agree
+    rule +!tallied(string l1, string l2, string l3) : l1 == l2 {
         +consensus_label(l1);
         console.println("Majority agrees on '" + l1 + "' (1&2) → ACCEPTED");
     }
 
     // ACHIEVEMENT: 1 & 3 agree
-    rule +!tally(string l1, string l2, string l3) : l1 == l3 {
+    rule +!tallied(string l1, string l2, string l3) : l1 == l3 {
         +consensus_label(l1);
         console.println("Majority agrees on '" + l1 + "' (1&3) → ACCEPTED");
     }
 
-    // ACHIEVEMENT: 2 & 3 agree, 1 disagrees (~= inequality)
-    rule +!tally(string l1, string l2, string l3) : l2 == l3 & l1 ~= l2 {
+    // ACHIEVEMENT: 2 & 3 agree, 1 disagrees (~=)
+    rule +!tallied(string l1, string l2, string l3) : l2 == l3 & l1 ~= l2 {
         +consensus_label(l2);
-        console.println("Majority agrees on '" + l2 + "' (2&3, 1 disagrees) → ACCEPTED");
+        console.println("Majority agrees on '" + l2 + "' (2&3) → ACCEPTED");
     }
 
-    // ACHIEVEMENT: no consensus — all disagree (catch-all)
-    rule +!tally(string l1, string l2, string l3) {
+    // ACHIEVEMENT: no consensus
+    rule +!tallied(string l1, string l2, string l3) {
         console.println("No consensus — all disagree → NO DECISION");
     }
 
-    // RECOVERY (Principle 5)
+    // RECOVERY
     rule -!consensus_reached(boolean x) {
         console.println("Consensus determination FAILED");
     }

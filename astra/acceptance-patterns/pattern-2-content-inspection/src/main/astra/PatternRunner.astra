@@ -1,82 +1,68 @@
-/**
- * Pattern 2: Content Inspection — Practical Reasoning Style
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +llm_result(rid) : ~inspected(rid) → !inspected(rid)
- *   P2 Means-End:       +!inspected(rid) : valid & known → accept; ?inspected
- *   P2 Serendipity:     +!inspected(rid) : inspected(rid) → done
- *   P4 Decomposition:   +!inspected decomposes to !known_category
- *   P5 Recovery:        -!inspected(rid) → log failure
- *   P6 Reactive:        +llm_result(rid) : invalid → log
- *   P7 Domain Model:    inference inspected :- accepted; inference is_known :- known
- */
+// Pipeline: main → !configured → !inspected → !known_category → ?inspected
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
-        formula llm_result(string);
+        formula configured(boolean);
         formula inspected(string);
         formula accepted(string);
-        formula rejected(string, string);
         formula known(string);
-        formula is_known_label(string, boolean);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial known("fruit"), known("vegetable"), known("grain");
 
-    // DOMAIN MODEL (Principle 7)
+    // DOMAIN MODEL
     inference inspected(string rid) :- accepted(rid);
-    inference is_known_label(string L, true) :- known(L);
 
-    // INITIAL: invoke LLM, store result as belief
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
-        +llm_result(gl.invoke_with_beliefs(
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !inspected(gl.invoke_with_beliefs(
             "agent1", "classify", "llm.answer", "ANSWER",
             "Based on the Agent beliefs, classify: apple",
             "label,confidence", "category(apple, fruit)"
         ));
     }
 
-    // DELIBERATION (Principle 1) — valid result needs inspection
-    rule +llm_result(string rid) : gl.valid(rid) == true & ~inspected(rid) {
-        !inspected(rid);
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
     }
 
-    // REACTIVE (Principle 6) — invalid output
-    rule +llm_result(string rid) : gl.valid(rid) ~= true {
-        console.println("Invalid output → REJECTED");
-    }
-
-    // SERENDIPITY (Principle 2) — already inspected
+    // SERENDIPITY
     rule +!inspected(string rid) : inspected(rid) {
         console.println("Already inspected: " + rid);
     }
 
-    // DECOMPOSITION (Principle 4) — decompose into content check
+    // DECOMPOSITION: valid → check content
     rule +!inspected(string rid) : gl.valid(rid) == true {
         !known_category(gl.candidate(rid), gl.field(rid, "label"));
         +accepted(rid);
         ?inspected(rid);
     }
 
-    // ACHIEVEMENT: known category → accept (Principle 2)
+    // ACHIEVEMENT: invalid
+    rule +!inspected(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // ACHIEVEMENT: known → accept
     rule +!known_category(string cid, string label) : known(label) {
         gl.accept(cid);
         console.println("Known category '" + label + "' → ACCEPTED");
     }
 
-    // ACHIEVEMENT: unknown category → reject (negation-as-failure)
+    // ACHIEVEMENT: unknown → reject
     rule +!known_category(string cid, string label) : ~known(label) {
         gl.reject(cid);
         console.println("Unknown category '" + label + "' → REJECTED");
     }
 
-    // RECOVERY (Principle 5)
+    // RECOVERY
     rule -!inspected(string rid) {
         console.println("Inspection FAILED for " + rid);
     }

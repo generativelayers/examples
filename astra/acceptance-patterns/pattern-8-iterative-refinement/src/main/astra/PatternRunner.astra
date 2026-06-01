@@ -1,61 +1,41 @@
-/**
- * Pattern 8: Iterative Refinement — Practical Reasoning Style
- *
- * Three-step pipeline: Draft → Critique → Refine → Accept.
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +draft_ready(rid) → !refined(rid)
- *   P2 Means-End:       +!refined(rid) → pipeline → ?refined(rid)
- *   P2 Serendipity:     +!refined(rid) : refined(rid) → done
- *   P4 Decomposition:   !refined decomposes to !critiqued, !improved
- *   P5 Recovery:        -!refined, -!critiqued, -!improved → log
- *   P7 Domain Model:    inference refined :- pipeline_step("accepted")
- *   Also: -+ atomic, belief-driven pipeline state
- */
+// Pipeline: main → !configured → !refined → !critiqued → !improved → !accepted_final → ?refined
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
-        formula draft_ready(string);
+        formula configured(boolean);
         formula refined(string);
         formula critiqued(string);
         formula improved(string);
+        formula accepted_final(boolean);
         formula pipeline_step(string);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // DOMAIN MODEL (Principle 7)
-    inference refined(string rid) :- pipeline_step("accepted");
+    // DOMAIN MODEL
+    inference refined(string rid) :- accepted_final(true);
 
-    // INITIAL: generate draft, store as belief
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
-        console.println("=== Pattern 8: Iterative Refinement ===");
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !refined(gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis"));
+    }
+
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
-        +pipeline_step("drafting");
-        +draft_ready(gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis"));
     }
 
-    // DELIBERATION (Principle 1) — draft ready, needs refinement
-    rule +draft_ready(string rid) : gl.valid(rid) == true & ~refined(rid) {
-        !refined(rid);
-    }
-
-    // REACTIVE (Principle 6) — invalid draft
-    rule +draft_ready(string rid) : gl.valid(rid) ~= true {
-        -+pipeline_step("draft_failed");
-        console.println("Draft invalid → ABORTED");
-    }
-
-    // SERENDIPITY (Principle 2) — already refined
+    // SERENDIPITY
     rule +!refined(string rid) : refined(rid) {
         console.println("Already refined: " + rid);
     }
 
-    // DECOMPOSITION (Principle 4) — refine = critique + improve + accept
+    // DECOMPOSITION: refine = critique + improve + accept
     rule +!refined(string rid) : gl.valid(rid) == true {
         !critiqued(rid);
         !improved(rid);
@@ -63,11 +43,17 @@ agent PatternRunner {
         ?refined(rid);
     }
 
-    // ACHIEVEMENT: critique the draft (Principle 2)
+    // ACHIEVEMENT: invalid draft
+    rule +!refined(string rid) {
+        -+pipeline_step("draft_failed");
+        console.println("Draft invalid → ABORTED");
+    }
+
+    // ACHIEVEMENT: critique
     rule +!critiqued(string draftRid) : gl.valid(draftRid) == true {
         -+pipeline_step("critiquing");
-        console.println("Draft generated (valid) → requesting critique");
         +critiqued(gl.ask("agent1", "critique", "Critique the summary of photosynthesis"));
+        console.println("Draft → critique requested");
     }
 
     // SERENDIPITY
@@ -75,11 +61,11 @@ agent PatternRunner {
         console.println("Already critiqued");
     }
 
-    // ACHIEVEMENT: improve based on critique (Principle 2)
+    // ACHIEVEMENT: improve
     rule +!improved(string rid) : critiqued(string critiqueRid) & gl.valid(critiqueRid) == true {
         -+pipeline_step("refining");
-        console.println("Critique received (valid) → refining");
         +improved(gl.ask("agent1", "refine", "Improve the summary based on feedback"));
+        console.println("Critique → refinement requested");
     }
 
     // SERENDIPITY
@@ -87,14 +73,15 @@ agent PatternRunner {
         console.println("Already improved");
     }
 
-    // ACHIEVEMENT: accept the final version (Principle 2)
+    // ACHIEVEMENT: accept final
     rule +!accepted_final(string rid) : improved(string finalRid) & gl.valid(finalRid) == true {
         gl.accept(gl.candidate(finalRid));
+        +accepted_final(true);
         -+pipeline_step("accepted");
-        console.println("Draft → Critique → Refine pipeline complete → ACCEPTED");
+        console.println("Draft → Critique → Refine → ACCEPTED");
     }
 
-    // RECOVERY (Principle 5) — at each level
+    // RECOVERY at each level
     rule -!refined(string rid) {
         -+pipeline_step("failed");
         console.println("Refinement pipeline FAILED for " + rid);

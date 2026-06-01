@@ -1,67 +1,52 @@
-/**
- * Pattern 6: Belief Consistency — Practical Reasoning Style
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +llm_result(rid) : ~consistent(rid) → !consistent(rid)
- *   P2 Means-End:       +!consistent(rid) → check belief → ?consistent(rid)
- *   P2 Serendipity:     +!consistent(rid) : consistent(rid) → done
- *   P4 Decomposition:   !consistent decomposes to !belief_checked
- *   P5 Recovery:        -!consistent(rid) → log failure
- *   P6 Reactive:        +llm_result(rid) : invalid → log
- *   P7 Domain Model:    inference consistent :- belief_checked;
- *                        inference has_prior_belief :- category
- */
+// Pipeline: main → !configured → !consistent → !belief_checked(match|contradict|new) → ?consistent
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
-        formula llm_result(string);
+        formula configured(boolean);
         formula consistent(string);
         formula belief_checked(string);
         formula category(string, string);
-        formula has_prior_belief(string, boolean);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial category("apple", "fruit"), category("carrot", "vegetable");
 
-    // DOMAIN MODEL (Principle 7)
+    // DOMAIN MODEL
     inference consistent(string rid) :- belief_checked(rid);
-    inference has_prior_belief(string item, true) :- category(item, string _);
 
-    // INITIAL: invoke LLM
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
-        console.println("=== Pattern 6: Belief Consistency ===");
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !consistent(gl.ask("agent1", "classify", "Classify: apple"));
+    }
+
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
-        +llm_result(gl.ask("agent1", "classify", "Classify: apple"));
     }
 
-    // DELIBERATION (Principle 1)
-    rule +llm_result(string rid) : gl.valid(rid) == true & ~consistent(rid) {
-        !consistent(rid);
-    }
-
-    // REACTIVE (Principle 6) — invalid
-    rule +llm_result(string rid) : gl.valid(rid) ~= true {
-        console.println("Invalid output → REJECTED");
-    }
-
-    // SERENDIPITY (Principle 2) — already checked
+    // SERENDIPITY
     rule +!consistent(string rid) : consistent(rid) {
         console.println("Already checked: " + rid);
     }
 
-    // DECOMPOSITION (Principle 4) — decompose to belief check
+    // DECOMPOSITION: valid → check belief
     rule +!consistent(string rid) : gl.valid(rid) == true {
         !belief_checked("apple", gl.field(rid, "label"), gl.candidate(rid));
         +belief_checked(rid);
         ?consistent(rid);
     }
 
-    // ACHIEVEMENT: consistent with existing belief → confirm
+    // ACHIEVEMENT: invalid
+    rule +!consistent(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // ACHIEVEMENT: matches existing belief → confirm
     rule +!belief_checked(string item, string label, string cid) : category(item, label) {
         gl.accept(cid);
         console.println("Matches belief: " + item + " = " + label + " → CONFIRMED");
@@ -73,14 +58,14 @@ agent PatternRunner {
         console.println("Contradicts belief! Expected " + existing + " got " + label + " → REJECTED");
     }
 
-    // ACHIEVEMENT: no prior belief → adopt as new knowledge
+    // ACHIEVEMENT: no prior belief → adopt new knowledge
     rule +!belief_checked(string item, string label, string cid) : ~category(item, string any) {
         gl.accept(cid);
         +category(item, label);
         console.println("No prior belief for " + item + " → NEW KNOWLEDGE: " + label);
     }
 
-    // RECOVERY (Principle 5)
+    // RECOVERY
     rule -!consistent(string rid) {
         console.println("Consistency check FAILED for " + rid);
     }

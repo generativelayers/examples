@@ -1,15 +1,4 @@
-/**
- * Pattern 5: Agent-to-Agent Review — Practical Reasoning Style (Reviewer)
- *
- * Pure BDI reviewer — no LLM involved.
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +review_pending(label, cid, sender) → !review_decided
- *   P2 Means-End:       +!review_decided : known → approve; ?review_decided
- *   P2 Serendipity:     +!review_decided : already decided → done
- *   P5 Recovery:        -!review_decided → log failure
- *   P6 Reactive:        @message triggers belief adoption (Reactive)
- *   P7 Domain Model:    inference is_acceptable :- known_food
- */
+// Pipeline: @message → +review_pending → !review_decided → send(approve|reject) → ?review_decided
 agent Reviewer {
     module Console console;
 
@@ -20,47 +9,44 @@ agent Reviewer {
         formula review_pending(string, string, string);
         formula review_decided(string);
         formula known_food(string);
-        formula is_acceptable(string, boolean);
     }
 
     initial known_food("fruit"), known_food("vegetable"), known_food("grain");
 
-    // DOMAIN MODEL (Principle 7) — derived beliefs
-    inference is_acceptable(string L, true) :- known_food(L);
+    // DOMAIN MODEL
+    inference review_decided(string cid) :- review_approved(cid);
 
-    // REACTIVE (Principle 6) — incoming request → store as belief
+    // REACTIVE: incoming request → store as belief
     rule @message(request, string sender, review_request(string label, string cid)) {
         +review_pending(label, cid, sender);
     }
 
-    // DELIBERATION (Principle 1) — pending review triggers decision goal
+    // DELIBERATION: pending review → adopt decision goal
     rule +review_pending(string label, string cid, string sender) : ~review_decided(cid) {
         !review_decided(cid);
     }
 
-    // SERENDIPITY (Principle 2) — already decided
+    // SERENDIPITY
     rule +!review_decided(string cid) : review_decided(cid) {
         console.println("[Reviewer] Already decided for " + cid);
     }
 
-    // MEANS-END: ACHIEVEMENT — known food → approve (Principle 2)
+    // ACHIEVEMENT: known → approve
     rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & known_food(label) {
-        console.println("[Reviewer] '" + label + "' is known → APPROVED");
         send(inform, sender, review_approved(cid));
-        +review_decided(cid);
+        +review_approved(cid);
         ?review_decided(cid);
+        console.println("[Reviewer] '" + label + "' is known → APPROVED");
     }
 
-    // MEANS-END: ACHIEVEMENT — unknown food → reject (negation-as-failure)
+    // ACHIEVEMENT: unknown → reject
     rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & ~known_food(label) {
-        console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
         send(inform, sender, review_rejected(cid, "not in knowledge base"));
-        +review_decided(cid);
-        ?review_decided(cid);
+        console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
     }
 
-    // RECOVERY (Principle 5)
+    // RECOVERY
     rule -!review_decided(string cid) {
-        console.println("[Reviewer] Review decision FAILED for " + cid);
+        console.println("[Reviewer] Decision FAILED for " + cid);
     }
 }

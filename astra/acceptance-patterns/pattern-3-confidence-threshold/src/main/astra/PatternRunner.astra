@@ -1,15 +1,4 @@
-/**
- * Pattern 3: Confidence Threshold — Practical Reasoning Style
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +llm_result(rid) : ~assessed(rid) → !assessed(rid)
- *   P2 Means-End:       +!assessed(rid) → tier check → ?assessed(rid)
- *   P2 Serendipity:     +!assessed(rid) : assessed(rid) → done
- *   P3 Repair:          medium confidence → !escalated; !assessed (retry)
- *   P5 Recovery:        -!assessed(rid) → log failure
- *   P6 Reactive:        +llm_result(rid) : invalid → log
- *   P7 Domain Model:    inference assessed :- confidence_tier exists
- */
+// Pipeline: main → !configured → !assessed → tier(high|low|medium) → ?assessed
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
@@ -17,8 +6,8 @@ agent PatternRunner {
 
     types governance {
         formula setting(string, string);
+        formula configured(boolean);
         formula threshold(string, string);
-        formula llm_result(string);
         formula assessed(string);
         formula accepted(string);
         formula confidence_tier(string, string);
@@ -27,37 +16,31 @@ agent PatternRunner {
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial threshold("high", "1.0"), threshold("low", "0.0");
 
-    // DOMAIN MODEL (Principle 7) — assessed when a tier has been assigned
+    // DOMAIN MODEL
     inference assessed(string rid) :- confidence_tier(rid, string _);
 
-    // INITIAL: invoke LLM, store result
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
-        console.println("=== Pattern 3: Confidence Threshold ===");
-        gl.configure("model", m);
-        gl.use_provider(p);
-        +llm_result(gl.invoke(
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !assessed(gl.invoke(
             "agent1", "classify", "llm.answer", "ANSWER",
             "Classify: apple", "label,confidence"
         ));
     }
 
-    // DELIBERATION (Principle 1) — valid result needs assessment
-    rule +llm_result(string rid) : gl.valid(rid) == true & ~assessed(rid) {
-        !assessed(rid);
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
     }
 
-    // REACTIVE (Principle 6) — invalid output
-    rule +llm_result(string rid) : gl.valid(rid) ~= true {
-        console.println("Invalid output → REJECTED");
-    }
-
-    // SERENDIPITY (Principle 2) — already assessed
+    // SERENDIPITY
     rule +!assessed(string rid) : assessed(rid) {
         console.println("Already assessed: " + rid);
     }
 
-    // MEANS-END: high confidence → accept (Principle 2)
-    rule +!assessed(string rid) : threshold("high", string t) & gl.field(rid, "confidence") == t {
+    // ACHIEVEMENT: high confidence → accept
+    rule +!assessed(string rid) : gl.valid(rid) == true & threshold("high", string t) & gl.field(rid, "confidence") == t {
         gl.accept(gl.candidate(rid));
         +accepted(rid);
         +confidence_tier(rid, "high");
@@ -65,22 +48,28 @@ agent PatternRunner {
         console.println("High confidence (" + t + ") → ACCEPTED");
     }
 
-    // MEANS-END: low confidence → reject and fail (Principle 2)
-    rule +!assessed(string rid) : threshold("low", string t) & gl.field(rid, "confidence") == t {
+    // ACHIEVEMENT: low confidence → reject, fail
+    rule +!assessed(string rid) : gl.valid(rid) == true & threshold("low", string t) & gl.field(rid, "confidence") == t {
         gl.reject(gl.candidate(rid));
         +confidence_tier(rid, "low");
         ?assessed(rid);
         console.println("Low confidence (" + t + ") → REJECTED");
+        S.fail();
     }
 
-    // MEANS-END: medium confidence — escalate (catch-all)
-    rule +!assessed(string rid) {
+    // ACHIEVEMENT: medium confidence → escalate (catch-all valid)
+    rule +!assessed(string rid) : gl.valid(rid) == true {
         +confidence_tier(rid, "medium");
         ?assessed(rid);
-        console.println("Medium confidence (" + gl.field(rid, "confidence") + ") → ESCALATING");
+        console.println("Medium confidence → ESCALATING");
     }
 
-    // RECOVERY (Principle 5) — handle unexpected failure
+    // ACHIEVEMENT: invalid output
+    rule +!assessed(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // RECOVERY
     rule -!assessed(string rid) {
         console.println("Assessment FAILED for " + rid);
     }

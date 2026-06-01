@@ -1,55 +1,40 @@
-/**
- * Pattern 1: Simple Validation — Practical Reasoning Style
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +llm_result(rid) : ~validated(rid) → !validated(rid)
- *   P2 Means-End:       +!validated(rid) : valid → accept; ?validated(rid)
- *   P2 Serendipity:     +!validated(rid) : validated(rid) → done
- *   P5 Recovery:        -!validated(rid) → log failure
- *   P6 Reactive:        +llm_result(rid) : invalid → log rejection
- *   P7 Domain Model:    inference validated(rid) :- accepted(rid)
- */
+// Pipeline: main → !configured → +llm_result → !validated → ?validated
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
+        formula configured(boolean);
         formula llm_result(string);
         formula validated(string);
         formula accepted(string);
         formula classified(string);
     }
 
-    // Configuration as beliefs
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // DOMAIN MODEL (Principle 7) — derived belief
+    // DOMAIN MODEL
     inference validated(string rid) :- accepted(rid);
 
-    // INITIAL: request classification, store result as belief
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !validated(gl.ask("agent1", "classify", "Classify: apple", "convo1"));
+    }
+
+    // ACHIEVEMENT: setup (actions only)
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
-        +llm_result(gl.ask("agent1", "classify", "Classify: apple", "convo1"));
     }
 
-    // DELIBERATION (Principle 1) — undesirable state triggers goal
-    rule +llm_result(string rid) : gl.valid(rid) == true & ~validated(rid) {
-        !validated(rid);
-    }
-
-    // REACTIVE (Principle 6) — invalid output, no goal needed
-    rule +llm_result(string rid) : gl.valid(rid) ~= true {
-        console.println("Invalid output → REJECTED");
-    }
-
-    // MEANS-END: SERENDIPITY (Principle 2) — already validated
+    // SERENDIPITY
     rule +!validated(string rid) : validated(rid) {
         console.println("Already validated: " + rid);
     }
 
-    // MEANS-END: ACHIEVEMENT (Principle 2) — accept and verify
+    // ACHIEVEMENT: valid → accept, verify
     rule +!validated(string rid) : gl.valid(rid) == true {
         gl.accept(gl.candidate(rid));
         +accepted(rid);
@@ -58,7 +43,12 @@ agent PatternRunner {
         console.println("ACCEPTED: " + gl.field(rid, "label"));
     }
 
-    // RECOVERY (Principle 5) — handle unexpected failure
+    // ACHIEVEMENT: invalid → reject
+    rule +!validated(string rid) {
+        console.println("Invalid output → REJECTED");
+    }
+
+    // RECOVERY
     rule -!validated(string rid) {
         console.println("Validation FAILED for " + rid);
     }

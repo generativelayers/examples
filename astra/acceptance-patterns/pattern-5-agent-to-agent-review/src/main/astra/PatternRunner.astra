@@ -1,15 +1,4 @@
-/**
- * Pattern 5: Agent-to-Agent Review — Practical Reasoning Style (Runner)
- *
- * Collier Principles demonstrated:
- *   P1 Deliberation:    +llm_result(rid) : ~reviewed(rid) → !reviewed(rid)
- *   P2 Means-End:       +!reviewed(rid) → send, wait, ?reviewed(rid)
- *   P2 Serendipity:     +!reviewed(rid) : reviewed(rid) → done
- *   P5 Recovery:        -!reviewed(rid) → log failure
- *   P6 Reactive:        +llm_result(rid) : invalid → log
- *   P7 Domain Model:    inference reviewed :- peer_approved
- *   Also: FIPA messaging, wait(condition, timeout)
- */
+// Pipeline: main → !configured → !reviewed → send(reviewer) → wait → ?reviewed
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
@@ -17,10 +6,10 @@ agent PatternRunner {
 
     types review_types {
         formula setting(string, string);
+        formula configured(boolean);
         formula review_timeout(int);
-        formula llm_result(string);
         formula reviewed(string);
-        formula peer_approved(string, string);
+        formula peer_approved(string);
         formula review_request(string, string);
         formula review_approved(string);
         formula review_rejected(string, string);
@@ -29,65 +18,59 @@ agent PatternRunner {
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial review_timeout(30000);
 
-    // DOMAIN MODEL (Principle 7)
-    inference reviewed(string rid) :- peer_approved(rid, string _);
+    // DOMAIN MODEL
+    inference reviewed(string cid) :- peer_approved(cid);
 
-    // INITIAL: invoke LLM
-    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
+    // DECOMPOSITION: main only adopts subgoals
+    rule +!main(list args) {
+        !configured(true);
+        !reviewed(gl.ask("agent1", "classify", "Classify: tomato"));
+    }
+
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
-        try {
-            +llm_result(gl.ask("agent1", "classify", "Classify: tomato"));
-        } recover {
-            console.println("[Runner] LLM call failed");
-        }
     }
 
-    // DELIBERATION (Principle 1) — valid result needs review
-    rule +llm_result(string rid) : gl.valid(rid) == true & ~reviewed(rid) {
-        !reviewed(rid);
-    }
-
-    // REACTIVE (Principle 6) — invalid output
-    rule +llm_result(string rid) : gl.valid(rid) ~= true {
-        console.println("[Runner] Invalid output → SKIPPED");
-    }
-
-    // SERENDIPITY (Principle 2) — already reviewed
+    // SERENDIPITY
     rule +!reviewed(string rid) : reviewed(rid) {
         console.println("[Runner] Already reviewed: " + rid);
     }
 
-    // MEANS-END: ACHIEVEMENT (Principle 2) — send to reviewer, wait
+    // ACHIEVEMENT: valid → send to reviewer, wait with timeout
     rule +!reviewed(string rid) : gl.valid(rid) == true & review_timeout(int timeout) {
         string cid = gl.candidate(rid);
         string label = gl.field(rid, "label");
         console.println("[Runner] Sending '" + label + "' to reviewer...");
         send(request, "reviewer", review_request(label, cid));
-
-        // Wait for reviewer response with timeout
         wait(review_approved(cid), timeout);
         if (~review_approved(cid)) {
             console.println("[Runner] Review TIMED OUT → REJECTED");
             gl.reject(cid);
         }
-        ?reviewed(rid);
+        ?reviewed(cid);
     }
 
-    // REACTIVE: peer approved → accept and record
+    // ACHIEVEMENT: invalid
+    rule +!reviewed(string rid) {
+        console.println("[Runner] Invalid output → SKIPPED");
+    }
+
+    // REACTIVE: peer approved
     rule @message(inform, string sender, review_approved(string cid)) {
-        +review_approved(cid);
+        +peer_approved(cid);
         gl.accept(cid);
         console.println("[Runner] Peer approved → ACCEPTED");
     }
 
-    // REACTIVE: peer rejected → reject
+    // REACTIVE: peer rejected
     rule @message(inform, string sender, review_rejected(string cid, string reason)) {
         gl.reject(cid);
         console.println("[Runner] Peer rejected: " + reason + " → REJECTED");
     }
 
-    // RECOVERY (Principle 5)
+    // RECOVERY
     rule -!reviewed(string rid) {
         console.println("[Runner] Review FAILED for " + rid);
     }
