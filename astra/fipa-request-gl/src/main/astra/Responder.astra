@@ -1,25 +1,22 @@
-/**
- * Responder Agent — handles FIPA Request by generating content via GL.
- *
- * On receiving a generation request:
- *   1. Configures the GL provider
- *   2. Invokes the generative body
- *   3. Validates and inspects the candidate
- *   4. Sends an inform back with the structured result
- *
- * The Responder is the "worker" agent — it uses the GL to generate
- * content on behalf of the Requester, but all generation is governed
- * through the full GL pipeline (policy → generate → validate → trace).
- */
+// Pipeline: @message(request) → !configured → !generated → !deliberated → send(inform) → ?generation_complete
 agent Responder extends GLOntology {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types responder_types {
+        formula setting(string, string);
+        formula configured(boolean);
         formula generation_complete(string, string);
+        formula accepted(string);
+        formula rejected(string, string);
     }
 
-    // Handle incoming FIPA Request
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+
+    // DOMAIN MODEL
+    inference generation_complete(string rid, "SUCCESS") :- accepted(rid);
+
+    // REACTIVE: incoming FIPA request → adopt goal
     rule @message(request, string sender,
                   gl_generate_request(string goalId, string affordance,
                                        string prompt, string requiredFields)) {
@@ -28,59 +25,76 @@ agent Responder extends GLOntology {
         console.println("[Responder]   goalId     = " + goalId);
         console.println("[Responder]   affordance = " + affordance);
         console.println("[Responder]   prompt     = " + prompt);
-
-        // Step 1 — Configure provider
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-
-        // Step 2 — Invoke generative body
-        string resultId = gl.invoke(
-            "responder", goalId, "llm.answer", affordance,
-            prompt, requiredFields
-        );
-
-        console.println("[Responder] resultId  = " + resultId);
-        string outcome = gl.outcome(resultId);
-        console.println("[Responder] outcome   = " + outcome);
-
-        // Step 3 — Get candidate handle
-        string candidateId = gl.candidate(resultId);
-
-        // Delegate to BDI context-guarded plans for deliberation
-        !process_response(resultId, candidateId, outcome, sender);
+        !responded(sender, goalId, affordance, prompt, requiredFields);
     }
 
-    // Context-guarded plans instead of procedural checks:
-    rule +!process_response(string resultId, string candidateId, string outcome, string sender) : gl.valid(resultId) == true {
-        string label      = gl.field(resultId, "label");
-        string confidence  = gl.field(resultId, "confidence");
+    // DECOMPOSITION: respond = configure + generate + deliberate + reply
+    rule +!responded(string sender, string goalId, string affordance,
+                     string prompt, string requiredFields) {
+        !configured(true);
+        !generated(sender, goalId, affordance, prompt, requiredFields);
+    }
 
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    // SERENDIPITY
+    rule +!configured(boolean x) : configured(true) {
+        // already configured
+    }
+
+    // DECOMPOSITION: generate = invoke + deliberate
+    rule +!generated(string sender, string goalId, string affordance,
+                     string prompt, string requiredFields) {
+        string rid = gl.invoke("responder", goalId, "llm.answer", affordance,
+                               prompt, requiredFields);
+        console.println("[Responder] resultId  = " + rid);
+        console.println("[Responder] outcome   = " + gl.outcome(rid));
+        !deliberated(rid, gl.candidate(rid), sender);
+    }
+
+    // ACHIEVEMENT: valid → accept + send inform
+    rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == true {
+        string label = gl.field(rid, "label");
+        string confidence = gl.field(rid, "confidence");
         console.println("[Responder] Generated:");
         console.println("[Responder]   label      = " + label);
         console.println("[Responder]   confidence = " + confidence);
-
-        // Accept the candidate ourselves before forwarding
-        if (candidateId ~= "") {
-            gl.accept(candidateId);
+        if (cid ~= "") {
+            gl.accept(cid);
         }
-        +generation_complete(resultId, "SUCCESS");
-
-        // Step 4 — Send inform back using shared ontology
+        +accepted(rid);
+        +generation_complete(rid, "SUCCESS");
         send(inform, sender,
-             gl_generate_response(resultId, candidateId, outcome, true));
+             gl_generate_response(rid, cid, gl.outcome(rid), true));
         console.println("[Responder] Sent valid response to " + sender);
     }
 
-    rule +!process_response(string resultId, string candidateId, string outcome, string sender) : gl.valid(resultId) == false {
-        // Reject invalid candidate (if one was produced)
-        if (candidateId ~= "") {
-            gl.reject(candidateId);
+    // ACHIEVEMENT: invalid → reject + send failure inform
+    rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == false {
+        if (cid ~= "") {
+            gl.reject(cid);
         }
-        +generation_complete(resultId, "FAILED");
-
-        // Send failure inform
+        +rejected(rid, gl.outcome(rid));
+        +generation_complete(rid, "FAILED");
         send(inform, sender,
-             gl_generate_response(resultId, candidateId, outcome, false));
+             gl_generate_response(rid, cid, gl.outcome(rid), false));
         console.println("[Responder] Sent failure response to " + sender);
+    }
+
+    // RECOVERY
+    rule -!responded(string sender, string goalId, string affordance,
+                     string prompt, string requiredFields) {
+        console.println("[Responder] Response FAILED for " + goalId);
+        send(inform, sender,
+             gl_generate_response("", "", "ERROR", false));
+    }
+
+    rule -!generated(string sender, string goalId, string affordance,
+                     string prompt, string requiredFields) {
+        console.println("[Responder] Generation FAILED for " + goalId);
     }
 }

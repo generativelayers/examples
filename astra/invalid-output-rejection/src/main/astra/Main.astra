@@ -1,95 +1,103 @@
-/**
- * Invalid Output Rejection — Generative Layer demonstration.
- *
- * Shows how the Generative Layer framework handles invalid/malformed
- * generative output.
- *
- * Key thesis point: fail-closed by default.
- */
+// Pipeline: main → !configured → !try_classify(strict) → !try_classify(relaxed) → !deliberated → accept|reject
 agent Main {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types gl_types {
-        formula candidate_accepted(string);
-        formula candidate_rejected(string, string);
-        formula attempt(int);
+    types governance {
+        formula setting(string, string);
+        formula configured(boolean);
+        formula accepted(string);
+        formula rejected(string, string);
         formula classification(string, string, string);
+        formula attempt(int);
     }
 
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial attempt(0);
 
+    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         console.println("=== Generative Layer Invalid Output Rejection Demo ===");
         console.println("");
+        !configured(true);
 
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-
-        // Attempt 1 — invoke with strict required fields (missing 'category' will trigger validation failure)
-        !tryClassify(
+        // Attempt 1 — strict fields (missing 'category' triggers validation failure)
+        !try_classify(
             "Classify 'banana' as food. Return label, confidence, and category.",
-            "label,confidence,category",
-            1
+            "label,confidence,category", 1
         );
 
-        // Attempt 2 — invoke with relaxed required fields (success!)
-        !tryClassify(
+        // Attempt 2 — relaxed fields (should succeed)
+        !try_classify(
             "Classify 'banana' as food. Return label and confidence.",
-            "label,confidence",
-            2
+            "label,confidence", 2
         );
 
         console.println("");
         console.println("=== Demo Complete ===");
     }
 
-    rule +!tryClassify(string prompt, string requiredCsv, int attemptNum) {
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    // DECOMPOSITION: classify = invoke + deliberate
+    rule +!try_classify(string prompt, string requiredCsv, int attemptNum) {
         console.println("[ATTEMPT " + attemptNum + "] Invoking gl...");
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
-
-        string resultId = gl.invoke(
+        string rid = gl.invoke(
             "agent_a", "classify_food", "llm.answer", "ANSWER",
             prompt, requiredCsv
         );
-        !deliberate_result(resultId, attemptNum);
+        !deliberated(rid, attemptNum);
     }
 
-    // Context-guarded plans instead of procedural checks:
-    rule +!deliberate_result(string resultId, int attemptNum) : gl.valid(resultId) == true {
-        string outcome = gl.outcome(resultId);
+    // ACHIEVEMENT: valid → accept
+    rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == true {
+        string outcome = gl.outcome(rid);
+        string cid = gl.candidate(rid);
+        string label = gl.field(rid, "label");
+        string confidence = gl.field(rid, "confidence");
+
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
         console.println("[ATTEMPT " + attemptNum + "]   valid    = true");
 
-        string candidateId = gl.candidate(resultId);
-        string label      = gl.field(resultId, "label");
-        string confidence  = gl.field(resultId, "confidence");
-
-        gl.accept(candidateId);
-        +candidate_accepted(candidateId);
+        gl.accept(cid);
+        +accepted(cid);
         +classification(label, confidence, "attempt_" + attemptNum);
+        -+attempt(attemptNum);
 
         console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
         console.println("[ATTEMPT " + attemptNum + "]     label      = " + label);
         console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
-
-        -+attempt(attemptNum);
         console.println("");
     }
 
-    rule +!deliberate_result(string resultId, int attemptNum) : gl.valid(resultId) == false {
-        string outcome = gl.outcome(resultId);
+    // ACHIEVEMENT: invalid → reject (fail-closed)
+    rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == false {
+        string outcome = gl.outcome(rid);
+        string cid = gl.candidate(rid);
+
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
         console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
 
-        string candidateId = gl.candidate(resultId);
-        gl.reject(candidateId);
-        +candidate_rejected(candidateId, outcome);
+        gl.reject(cid);
+        +rejected(cid, outcome);
+        -+attempt(attemptNum);
 
         console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
         console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
-
-        -+attempt(attemptNum);
         console.println("");
+    }
+
+    // RECOVERY
+    rule -!try_classify(string prompt, string requiredCsv, int attemptNum) {
+        console.println("[ATTEMPT " + attemptNum + "] Classification FAILED");
+    }
+
+    rule -!deliberated(string rid, int attemptNum) {
+        console.println("[ATTEMPT " + attemptNum + "] Deliberation FAILED");
     }
 }

@@ -1,43 +1,38 @@
-/**
- * Requester Agent — sends a FIPA Request to the Responder to generate content.
- *
- * Demonstrates the FIPA Request protocol integrated with the Generative Layer:
- *   1. Requester sends a request to Responder: "generate a classification"
- *   2. Responder uses GL to generate, validate, and assess the candidate
- *   3. Responder sends an inform with the result
- *   4. Requester inspects the result and decides whether to adopt it
- *
- * This proves that FIPA ACL protocols can govern multi-agent generative
- * workflows with formal semantics — replacing ad-hoc orchestration.
- */
+// Pipeline: start → send(request) → +waiting → @message(inform) → !response_handled → ?adopted|rejected
 agent Requester extends GLOntology {
     module Console console;
 
     types requester_types {
         formula waiting_for_response(string);
-        formula response_received(string, string, string);
-        formula adopted_classification(string, string);
+        formula response_handled(string);
+        formula adopted(string, string, string);
+        formula rejected_response(string);
     }
+
+    // DOMAIN MODEL
+    inference response_handled(string goalId) :- adopted(string _, string _, goalId);
 
     initial !start();
 
+    // DECOMPOSITION: start = send request + record waiting state
     rule +!start() {
+        !request_sent("classify_food");
+    }
+
+    // ACHIEVEMENT: send FIPA request (actions only)
+    rule +!request_sent(string goalId) {
         console.println("[Requester] Sending FIPA Request to responder...");
         console.println("[Requester] Goal: classify 'mango' as a food type.");
         console.println("");
-
-        // Step 1 — Send FIPA request to responder agent
-        // Using the shared GL ontology formula
         send(request, "responder",
-             gl_generate_request("classify_food", "ANSWER",
+             gl_generate_request(goalId, "ANSWER",
                  "Classify 'mango' as a food type. Return label and confidence.",
                  "label,confidence"));
-
-        +waiting_for_response("classify_food");
+        +waiting_for_response(goalId);
         console.println("[Requester] Request sent. Waiting for response...");
     }
 
-    // Step 4 — Handle successful response
+    // REACTIVE: valid response → adopt result
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :
@@ -47,16 +42,13 @@ agent Requester extends GLOntology {
         console.println("[Requester]   resultId    = " + resultId);
         console.println("[Requester]   candidateId = " + candidateId);
         console.println("[Requester]   outcome     = " + outcome);
-
-        // Requester deliberation: adopt the result as own belief
-        +response_received(resultId, candidateId, outcome);
+        +adopted(resultId, candidateId, "classify_food");
         -waiting_for_response("classify_food");
-
         console.println("[Requester] Adopting classification from peer.");
         console.println("=== FIPA Request + GL Demo Complete ===");
     }
 
-    // Step 4 — Handle failed response
+    // REACTIVE: invalid response → reject
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :
@@ -65,8 +57,13 @@ agent Requester extends GLOntology {
         console.println("[Requester] Received INVALID response from " + sender);
         console.println("[Requester]   outcome = " + outcome);
         console.println("[Requester] Will NOT adopt result.");
-
+        +rejected_response(resultId);
         -waiting_for_response("classify_food");
         console.println("=== FIPA Request + GL Demo Complete (failed) ===");
+    }
+
+    // RECOVERY
+    rule -!request_sent(string goalId) {
+        console.println("[Requester] Failed to send request for " + goalId);
     }
 }

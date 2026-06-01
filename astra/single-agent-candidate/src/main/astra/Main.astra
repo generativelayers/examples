@@ -1,92 +1,109 @@
-/**
- * Single Agent Candidate — Generative Layer demonstration.
- *
- * Shows the fundamental Generative Layer flow:
- *   configure → use_provider → invoke → validate → accept/reject
- *
- * The agent chooses its own provider and model, then asks the generative layer
- * to classify a food item. No generated output enters beliefs
- * without explicit agent action.
- */
+// Pipeline: main → !configured → !classified(food) → !deliberated → accept|reject → ?classified
 agent Main {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types gl_types {
-        formula candidate_accepted(string);
-        formula candidate_rejected(string);
-        formula classification(string, string);
+    types governance {
+        formula setting(string, string);
+        formula configured(boolean);
+        formula classified(string, string, string);
+        formula accepted(string);
+        formula rejected(string, string);
     }
 
+    initial setting("model", "gemini-2.5-flash"), setting("provider", "gemini");
+
+    // DOMAIN MODEL
+    inference classified(string item, string label, string conf) :-
+        accepted(string _) & classified(item, label, conf);
+
+    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         console.println("=== Generative Layer Single Agent Candidate Demo ===");
         console.println("");
         console.println("[Layer] Available providers: " + gl.providers());
-        gl.configure("model", "gemini-2.5-flash");
-
-        gl.use_provider("gemini");
-        !classify_food("apple");
+        !configured(true);
+        !classified("apple");
     }
 
-    rule +!classify_food(string foodItem) {
-        string resultId = gl.invoke(
-            "agent_a",                  // agentId
-            "classify_food",            // goalId
-            "llm.answer",              // bodyId (generative body)
-            "ANSWER",                  // affordance type
+    // ACHIEVEMENT: setup
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    // DECOMPOSITION: classify = invoke + deliberate
+    rule +!classified(string foodItem) {
+        string rid = gl.invoke(
+            "agent_a", "classify_food", "llm.answer", "ANSWER",
             "Classify the food item '" + foodItem + "'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
-            "label,confidence"         // required fields for validation
+            "label,confidence"
         );
-        console.println("[Layer] resultId  = " + resultId);
-        !deliberate_result(resultId);
-    }
-    rule +!deliberate_result(string resultId) : gl.valid(resultId) == true {
-        console.println("[Layer] valid     = true");
-        string candidateId = gl.candidate(resultId);
-        console.println("[Layer] candidate = " + candidateId);
-        !deliberate_candidate(resultId, candidateId);
+        console.println("[Layer] resultId  = " + rid);
+        !deliberated(rid);
     }
 
-    rule +!deliberate_result(string resultId) : gl.valid(resultId) == false {
-        console.println("[Layer] valid     = false");
-        !handle_rejection("", resultId);
+    // SERENDIPITY: already accepted
+    rule +!deliberated(string rid) : accepted(rid) {
+        console.println("[AGENT] Already deliberated: " + rid);
     }
 
-    rule +!deliberate_candidate(string resultId, string candidateId) : gl.admissible(candidateId) == true {
-        string label      = gl.field(resultId, "label");
-        string confidence  = gl.field(resultId, "confidence");
+    // DECOMPOSITION: valid + admissible → accept
+    rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == true {
+        !accepted_candidate(rid, gl.candidate(rid));
+        !print_trace(rid);
+    }
 
+    // DECOMPOSITION: valid but not admissible → reject
+    rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == false {
+        !rejected_candidate(gl.candidate(rid), rid);
+        !print_trace(rid);
+    }
+
+    // DECOMPOSITION: invalid → reject
+    rule +!deliberated(string rid) : gl.valid(rid) == false {
+        !rejected_candidate("", rid);
+        !print_trace(rid);
+    }
+
+    // ACHIEVEMENT: accept (actions only)
+    rule +!accepted_candidate(string rid, string cid) {
+        string label = gl.field(rid, "label");
+        string confidence = gl.field(rid, "confidence");
         console.println("");
         console.println("[AGENT] Candidate is valid and admissible.");
         console.println("[AGENT]   label      = " + label);
         console.println("[AGENT]   confidence = " + confidence);
-
-        gl.accept(candidateId);
-        +candidate_accepted(candidateId);
-        +classification(label, confidence);
-
+        gl.accept(cid);
+        +accepted(cid);
+        +classified("food", label, confidence);
         console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
-        !print_trace(resultId);
     }
 
-    rule +!deliberate_candidate(string resultId, string candidateId) : gl.admissible(candidateId) == false {
-        !handle_rejection(candidateId, resultId);
-    }
-    rule +!handle_rejection(string candidateId, string resultId) {
-        if (candidateId ~= "") {
-            gl.reject(candidateId);
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid) {
+        if (cid ~= "") {
+            gl.reject(cid);
         }
-        +candidate_rejected(candidateId);
+        +rejected(cid, gl.outcome(rid));
         console.println("");
         console.println("[AGENT] Candidate REJECTED.");
-        console.println("[AGENT]   outcome = " + gl.outcome(resultId));
-        !print_trace(resultId);
+        console.println("[AGENT]   outcome = " + gl.outcome(rid));
     }
 
-    rule +!print_trace(string resultId) {
-        string traceId = gl.trace(resultId);
+    // ACHIEVEMENT: print trace (action only)
+    rule +!print_trace(string rid) {
         console.println("");
-        console.println("[TRACE] traceId = " + traceId);
+        console.println("[TRACE] traceId = " + gl.trace(rid));
         console.println("=== Demo Complete ===");
+    }
+
+    // RECOVERY
+    rule -!classified(string foodItem) {
+        console.println("[AGENT] Classification FAILED for " + foodItem);
+    }
+
+    rule -!deliberated(string rid) {
+        console.println("[AGENT] Deliberation FAILED for " + rid);
     }
 }
