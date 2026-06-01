@@ -1,3 +1,4 @@
+// Pipeline: start → !configured → !consistent → !belief_checked(match|contradict|new) → ?consistent
 /**
  * Pattern 6: Belief Consistency — Jason
  *
@@ -5,37 +6,67 @@
  * Matches → confirm, Contradicts → reject, New → adopt.
  */
 
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
 category("apple", "fruit"). category("carrot", "vegetable").
+
+// DOMAIN MODEL
+consistent(Rid) :- belief_checked(Rid).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 6: Belief Consistency ===");
-      gl.configure("model", "gpt-oss-120b");
-      gl.use_provider("cerebras");
+   <- !configured(true);
       gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !decide(Rid).
+      !consistent(Rid).
 
-+!decide(Rid)
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
+
+// SERENDIPITY
++!consistent(Rid)
+   :  consistent(Rid)
+   <- .println("Already checked: ", Rid).
+
+// DECOMPOSITION: valid → check belief
++!consistent(Rid)
    :  gl.valid(Rid, true)
    <- gl.field(Rid, "label", Label);
       gl.candidate(Rid, Cid);
-      !check_belief(Cid, "apple", Label).
+      !belief_checked("apple", Label, Cid);
+      +belief_checked(Rid);
+      ?consistent(Rid).
 
-+!check_belief(Cid, Item, Label)
+// ACHIEVEMENT: invalid
++!consistent(Rid)
+   <- .println("Invalid output → REJECTED").
+
+// ACHIEVEMENT: matches existing belief → confirm
++!belief_checked(Item, Label, Cid)
    :  category(Item, Label)
    <- gl.accept(Cid);
-      .println("Matches belief: ", Item, " = ", Label, " -> CONFIRMED");
-      .stopMAS.
+      .println("Matches belief: ", Item, " = ", Label, " → CONFIRMED").
 
-+!check_belief(Cid, Item, Label)
+// ACHIEVEMENT: contradicts existing belief → reject
++!belief_checked(Item, Label, Cid)
    :  category(Item, Existing) & Label \== Existing
    <- gl.reject(Cid);
-      .println("Contradicts belief! Expected ", Existing, " got ", Label, " -> REJECTED");
-      .stopMAS.
+      .println("Contradicts belief! Expected ", Existing, " got ", Label, " → REJECTED").
 
-+!check_belief(Cid, Item, Label)
+// ACHIEVEMENT: no prior belief → adopt new knowledge
++!belief_checked(Item, Label, Cid)
    :  not category(Item, _)
    <- gl.accept(Cid);
-      .println("No prior belief for ", Item, " -> NEW KNOWLEDGE: ", Label);
-      .stopMAS.
+      +category(Item, Label);
+      .println("No prior belief for ", Item, " → NEW KNOWLEDGE: ", Label).
+
+// RECOVERY
+-!consistent(Rid)
+   <- .println("Consistency check FAILED for ", Rid).

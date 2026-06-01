@@ -1,93 +1,121 @@
+// Pipeline: start → !banner → !configured → !classified(food) → !invoked → !deliberated → accept|reject
 /**
- * Single Agent Candidate β€” Generative Layer demonstration (Jason).
+ * Single Agent Candidate — Generative Layer demonstration (Jason).
  *
  * Shows the fundamental Generative Layer flow:
- *   configure β†’ use_provider β†’ invoke β†’ validate β†’ accept/reject
- *
- * Uses the same GL commands as the ASTRA version:
- *   gl.<command>(...)
+ *   configure → invoke → validate → accept/reject → trace
  */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+
+// DOMAIN MODEL
+classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Generative Layer Single Agent Candidate Demo ===");
+   <- !banner;
+      !configured(true);
+      !classified("apple").
+
+// ACHIEVEMENT: display banner (actions only)
++!banner
+   <- gl.providers(Providers);
+      .println("=== Generative Layer Single Agent Candidate Demo ===");
       .println("");
+      .println("[Layer] Available providers: ", Providers).
 
-      // Step 0 β€” List available providers
-      gl.providers(Providers);
-      .println("[Layer] Available providers: ", Providers);
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
 
-      // Step 1 β€” Configure the provider (reads GL_PROVIDER / GL_MODEL env vars)
-      gl.configure("model", "gpt-oss-120b");
+// DECOMPOSITION: classify = invoke + deliberate
++!classified(FoodItem)
+   <- .concat("Classify the food item '", FoodItem,
+              "'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
+              Prompt);
+      gl.invoke("agent_a", "classify_food", "llm.answer", "ANSWER",
+               Prompt, "label,confidence", Rid);
+      !invoked(Rid).
 
-      gl.use_provider("cerebras");
-      !classify_food("apple").
+// DECOMPOSITION: bind rid once → log → deliberate
++!invoked(Rid)
+   <- !log_invocation(Rid);
+      !deliberated(Rid).
 
-+!classify_food(FoodItem)
-   <- // Step 2 β€” Invoke the generative resource
-      gl.invoke(
-          "agent_a",                  // agentId
-          "classify_food",            // goalId
-          "llm.answer",              // bodyId (generative body)
-          "ANSWER",                  // affordance type
-          "Classify the food item 'apple'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
-          "label,confidence",        // required fields for validation
-          ResultId                   // output: bound result ID
-      );
+// ACHIEVEMENT: log invocation result (actions only)
++!log_invocation(Rid)
+   <- .println("[Layer] resultId  = ", Rid).
 
-      .println("[Layer] resultId  = ", ResultId);
-      !deliberate_result(ResultId).
+// SERENDIPITY: already accepted
++!deliberated(Rid)
+   :  accepted(Rid)
+   <- .println("[AGENT] Already deliberated: ", Rid).
 
-// Step 3 β€” deliberate based on validation results using BDI context-guards:
-+!deliberate_result(ResultId)
-   :  gl.valid(ResultId, true)
-   <- .println("[Layer] valid     = true");
-      gl.candidate(ResultId, CandidateId);
-      .println("[Layer] candidate = ", CandidateId);
-      !deliberate_candidate(ResultId, CandidateId).
+// DECOMPOSITION: valid + admissible → accept + trace
++!deliberated(Rid)
+   :  gl.valid(Rid, true) & gl.admissible(Rid, true)
+   <- gl.candidate(Rid, Cid);
+      !accepted_candidate(Rid, Cid);
+      !print_trace(Rid).
 
-+!deliberate_result(ResultId)
-   :  gl.valid(ResultId, false)
-   <- .println("[Layer] valid     = false");
-      !handle_rejection("", ResultId).
+// DECOMPOSITION: valid but not admissible → reject + trace
++!deliberated(Rid)
+   :  gl.valid(Rid, true) & gl.admissible(Rid, false)
+   <- gl.candidate(Rid, Cid);
+      !rejected_candidate(Cid, Rid);
+      !print_trace(Rid).
 
-// Deliberating candidate with BDI guard conditions:
-+!deliberate_candidate(ResultId, CandidateId)
-   :  gl.admissible(CandidateId, true)
-   <- gl.field(ResultId, "label", Label);
-      gl.field(ResultId, "confidence", Confidence);
+// DECOMPOSITION: invalid → reject + trace
++!deliberated(Rid)
+   :  gl.valid(Rid, false)
+   <- !rejected_candidate("", Rid);
+      !print_trace(Rid).
 
+// ACHIEVEMENT: accept (actions only)
++!accepted_candidate(Rid, Cid)
+   <- gl.field(Rid, "label", Label);
+      gl.field(Rid, "confidence", Confidence);
       .println("");
       .println("[AGENT] Candidate is valid and admissible.");
       .println("[AGENT]   label      = ", Label);
       .println("[AGENT]   confidence = ", Confidence);
+      gl.accept(Cid);
+      +accepted(Cid);
+      +classified("food", Label, Confidence);
+      .println("[AGENT] Candidate ACCEPTED. Belief adopted.").
 
-      gl.accept(CandidateId);
-      +candidate_accepted(CandidateId);
-      +classification(Label, Confidence);
-
-      .println("[AGENT] Candidate ACCEPTED. Belief adopted.");
-      !print_trace(ResultId).
-
-+!deliberate_candidate(ResultId, CandidateId)
-   :  gl.admissible(CandidateId, false)
-   <- !handle_rejection(CandidateId, ResultId).
-
-+!handle_rejection(CandidateId, ResultId)
-   <- if (CandidateId \== "") {
-          gl.reject(CandidateId);
+// ACHIEVEMENT: reject (actions only)
++!rejected_candidate(Cid, Rid)
+   <- if (Cid \== "") {
+          gl.reject(Cid);
       };
-      +candidate_rejected(CandidateId);
-
+      gl.outcome(Rid, Outcome);
+      +rejected(Cid, Outcome);
       .println("");
       .println("[AGENT] Candidate REJECTED.");
-      gl.outcome(ResultId, Outcome);
-      .println("[AGENT]   outcome = ", Outcome);
-      !print_trace(ResultId).
+      .println("[AGENT]   outcome = ", Outcome).
 
-+!print_trace(ResultId)
-   <- gl.trace(ResultId, TraceId);
+// ACHIEVEMENT: print trace (actions only)
++!print_trace(Rid)
+   <- gl.trace(Rid, TraceId);
       .println("");
       .println("[TRACE] traceId = ", TraceId);
       .println("=== Demo Complete ===").
+
+// RECOVERY
+-!classified(FoodItem)
+   <- .println("[AGENT] Classification FAILED for ", FoodItem).
+
+-!invoked(Rid)
+   <- .println("[AGENT] Invocation handling FAILED for ", Rid).
+
+-!deliberated(Rid)
+   <- .println("[AGENT] Deliberation FAILED for ", Rid).

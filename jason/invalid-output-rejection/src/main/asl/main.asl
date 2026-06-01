@@ -1,89 +1,100 @@
+// Pipeline: start → !banner → !configured → !try_classify(strict) → !try_classify(relaxed) → !demo_complete
 /**
- * Invalid Output Rejection β€” Generative Layer demonstration (Jason).
+ * Invalid Output Rejection — Generative Layer demonstration (Jason).
  *
  * Shows how the Generative Layer framework handles invalid/malformed
  * generative output.
  *
  * Key thesis point: fail-closed by default.
  * Invalid output never reaches the agent's belief base.
- *
- * Provider is configurable via GL_PROVIDER / GL_MODEL env vars.
  */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+attempt(0).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Generative Layer Invalid Output Rejection Demo ===");
-      .println("");
-
-      gl.configure("model", "gpt-oss-120b");
-      gl.use_provider("cerebras");
-
-      // Attempt 1 β€” invoke with strict required fields (missing 'category' will trigger validation failure)
-      !tryClassify(
+   <- !banner;
+      !configured(true);
+      !try_classify(
           "Classify 'banana' as food. Return label, confidence, and category.",
-          "label,confidence,category",
-          1
+          "label,confidence,category", 1
       );
-
-      // Attempt 2 β€” invoke with relaxed required fields (success!)
-      !tryClassify(
+      !try_classify(
           "Classify 'banana' as food. Return label and confidence.",
-          "label,confidence",
-          2
+          "label,confidence", 2
       );
+      !demo_complete.
 
-      .println("");
+// ACHIEVEMENT: display banner (actions only)
++!banner
+   <- .println("=== Generative Layer Invalid Output Rejection Demo ===");
+      .println("").
+
+// ACHIEVEMENT: display demo complete (actions only)
++!demo_complete
+   <- .println("");
       .println("=== Demo Complete ===").
 
-+!tryClassify(Prompt, RequiredCsv, AttemptNum)
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
+
+// DECOMPOSITION: classify = log attempt → invoke → deliberate
++!try_classify(Prompt, RequiredCsv, AttemptNum)
+   <- !log_attempt(AttemptNum, RequiredCsv);
+      gl.invoke("agent_a", "classify_food", "llm.answer", "ANSWER",
+               Prompt, RequiredCsv, Rid);
+      !deliberated(Rid, AttemptNum).
+
+// ACHIEVEMENT: log attempt (actions only)
++!log_attempt(AttemptNum, RequiredCsv)
    <- .println("[ATTEMPT ", AttemptNum, "] Invoking gl...");
-      .println("[ATTEMPT ", AttemptNum, "]   required = ", RequiredCsv);
+      .println("[ATTEMPT ", AttemptNum, "]   required = ", RequiredCsv).
 
-      gl.invoke(
-          "agent_b",                  // agentId
-          "classify_food",            // goalId
-          "llm.answer",               // bodyId
-          "ANSWER",                   // affordance type
-          Prompt,
-          RequiredCsv,                // required fields for validation
-          ResultId                    // output: bound result ID
-      );
-      !deliberate_result(ResultId, AttemptNum).
-
-// Deliberation using context-guarded plans instead of procedural checks:
-+!deliberate_result(ResultId, AttemptNum)
-   :  gl.valid(ResultId, true)
-   <- gl.outcome(ResultId, Outcome);
+// ACHIEVEMENT: valid → accept
++!deliberated(Rid, AttemptNum)
+   :  gl.valid(Rid, true)
+   <- gl.outcome(Rid, Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   outcome  = ", Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   valid    = true");
-
-      gl.candidate(ResultId, CandidateId);
-      gl.field(ResultId, "label", Label);
-      gl.field(ResultId, "confidence", Confidence);
-
-      gl.accept(CandidateId);
-      +candidate_accepted(CandidateId);
+      gl.candidate(Rid, Cid);
+      gl.accept(Cid);
+      +accepted(Cid);
+      gl.field(Rid, "label", Label);
+      gl.field(Rid, "confidence", Confidence);
       +classification(Label, Confidence, AttemptNum);
-
+      -+attempt(AttemptNum);
       .println("[ATTEMPT ", AttemptNum, "]   ACCEPTED");
       .println("[ATTEMPT ", AttemptNum, "]     label      = ", Label);
       .println("[ATTEMPT ", AttemptNum, "]     confidence = ", Confidence);
       .println("").
 
-+!deliberate_result(ResultId, AttemptNum)
-   :  gl.valid(ResultId, false)
-   <- gl.outcome(ResultId, Outcome);
+// ACHIEVEMENT: invalid → reject (fail-closed)
++!deliberated(Rid, AttemptNum)
+   :  gl.valid(Rid, false)
+   <- gl.outcome(Rid, Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   outcome  = ", Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   valid    = false");
-
-      gl.candidate(ResultId, CandidateId);
-      if (CandidateId == "") {
-          .println("[ATTEMPT ", AttemptNum, "]   FAILED β€” No candidate created.");
-      } else {
-          gl.reject(CandidateId);
-          +candidate_rejected(CandidateId, Outcome);
-          .println("[ATTEMPT ", AttemptNum, "]   REJECTED β€” ", Outcome);
-          .println("[ATTEMPT ", AttemptNum, "]   No beliefs adopted. Fail-closed.");
-      };
+      gl.candidate(Rid, Cid);
+      gl.reject(Cid);
+      +rejected(Cid, Outcome);
+      -+attempt(AttemptNum);
+      .println("[ATTEMPT ", AttemptNum, "]   REJECTED — ", Outcome);
+      .println("[ATTEMPT ", AttemptNum, "]   No beliefs adopted. Fail-closed.");
       .println("").
+
+// RECOVERY
+-!try_classify(Prompt, RequiredCsv, AttemptNum)
+   <- .println("[ATTEMPT ", AttemptNum, "] Classification FAILED").
+
+-!deliberated(Rid, AttemptNum)
+   <- .println("[ATTEMPT ", AttemptNum, "] Deliberation FAILED").

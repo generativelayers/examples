@@ -1,0 +1,51 @@
+/*
+ * JaCaMo + GL Artifact Demo — Gradle build file
+ *
+ * Agents communicate via shared GLArtifact (CArtAgO sensing)
+ * instead of ACL messages.
+ */
+
+defaultTasks 'run'
+
+apply plugin: 'java'
+
+version '1.0'
+group   'gl.examples'
+
+sourceCompatibility = 17
+targetCompatibility = 17
+
+repositories {
+    mavenCentral()
+    mavenLocal()  // GL core must be installed locally: cd framework/core && mvn install
+    maven { url "https://raw.githubusercontent.com/jacamo-lang/mvn-repo/master" }
+}
+
+dependencies {
+    // GL framework core (install locally first)
+    implementation group: 'gl',             name: 'core',               version: '0.1.0-SNAPSHOT'
+    // Jason + CArtAgO (JaCaMo distribution)
+    implementation group: 'org.jacamo',     name: 'jacamo',             version: '1.3'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/env'
+        }
+        resources {
+            srcDir 'src/agt'
+        }
+    }
+}
+
+task run (type: JavaExec, dependsOn: 'classes') {
+    description 'runs the JaCaMo+GL application'
+    mainClass = 'jason.infra.local.RunLocalMAS'
+    args 'gl_artifact_demo.mas2j'
+    classpath sourceSets.main.runtimeClasspath
+
+    // Provider configuration via environment
+    // Set GL_PROVIDER=gemini and GL_MODEL=gemini-2.5-flash for real LLM
+    // Default: fake provider for offline testing
+}

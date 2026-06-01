@@ -16,23 +16,27 @@ agent Responder extends GLOntology {
     // DOMAIN MODEL
     inference generation_complete(string rid, "SUCCESS") :- accepted(rid);
 
-    // REACTIVE: incoming FIPA request → adopt goal
+    // DELIBERATION: incoming FIPA request → adopt response goal
     rule @message(request, string sender,
                   gl_generate_request(string goalId, string affordance,
                                        string prompt, string requiredFields)) {
+        !responded(sender, goalId, affordance, prompt, requiredFields);
+    }
 
+    // DECOMPOSITION: respond = log → configure → generate
+    rule +!responded(string sender, string goalId, string affordance,
+                     string prompt, string requiredFields) {
+        !log_request_received(sender, goalId, affordance, prompt);
+        !configured(true);
+        !generated(sender, goalId, affordance, prompt, requiredFields);
+    }
+
+    // ACHIEVEMENT: log incoming request
+    rule +!log_request_received(string sender, string goalId, string affordance, string prompt) {
         console.println("[Responder] Received generation request from " + sender);
         console.println("[Responder]   goalId     = " + goalId);
         console.println("[Responder]   affordance = " + affordance);
         console.println("[Responder]   prompt     = " + prompt);
-        !responded(sender, goalId, affordance, prompt, requiredFields);
-    }
-
-    // DECOMPOSITION: respond = configure + generate + deliberate + reply
-    rule +!responded(string sender, string goalId, string affordance,
-                     string prompt, string requiredFields) {
-        !configured(true);
-        !generated(sender, goalId, affordance, prompt, requiredFields);
     }
 
     // ACHIEVEMENT: setup
@@ -49,20 +53,26 @@ agent Responder extends GLOntology {
     // DECOMPOSITION: generate = invoke + deliberate
     rule +!generated(string sender, string goalId, string affordance,
                      string prompt, string requiredFields) {
-        string rid = gl.invoke("responder", goalId, "llm.answer", affordance,
-                               prompt, requiredFields);
+        !invoked(gl.invoke("responder", goalId, "llm.answer", affordance, prompt, requiredFields), sender);
+    }
+
+    // DECOMPOSITION: bind rid once → log → deliberate
+    rule +!invoked(string rid, string sender) {
+        !log_invocation_result(rid);
+        !deliberated(rid, gl.candidate(rid), sender);
+    }
+
+    // ACHIEVEMENT: log invocation result
+    rule +!log_invocation_result(string rid) {
         console.println("[Responder] resultId  = " + rid);
         console.println("[Responder] outcome   = " + gl.outcome(rid));
-        !deliberated(rid, gl.candidate(rid), sender);
     }
 
     // ACHIEVEMENT: valid → accept + send inform
     rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == true {
-        string label = gl.field(rid, "label");
-        string confidence = gl.field(rid, "confidence");
         console.println("[Responder] Generated:");
-        console.println("[Responder]   label      = " + label);
-        console.println("[Responder]   confidence = " + confidence);
+        console.println("[Responder]   label      = " + gl.field(rid, "label"));
+        console.println("[Responder]   confidence = " + gl.field(rid, "confidence"));
         if (cid ~= "") {
             gl.accept(cid);
         }
@@ -91,6 +101,10 @@ agent Responder extends GLOntology {
         console.println("[Responder] Response FAILED for " + goalId);
         send(inform, sender,
              gl_generate_response("", "", "ERROR", false));
+    }
+
+    rule -!invoked(string rid, string sender) {
+        console.println("[Responder] Invocation handling FAILED for " + rid);
     }
 
     rule -!generated(string sender, string goalId, string affordance,

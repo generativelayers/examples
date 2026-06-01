@@ -1,43 +1,77 @@
+// Pipeline: start → !artifact_ready → !configured → !reviewed → send(reviewer) → wait → ?reviewed
 /**
  * Pattern 5: Agent-to-Agent Review — JaCaMo (Main agent)
  *
  * Generates LLM output, sends the label to a peer reviewer
- * agent via BDI messaging. Accepts/rejects based on reviewer's verdict.
+ * agent via messaging. Accepts/rejects based on reviewer's verdict.
  */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+review_timeout(30000).
+
+// DOMAIN MODEL
+reviewed(Cid) :- peer_approved(Cid).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 5: Agent-to-Agent Review ===");
-      makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
-      focus(GlId);
-      configure("model", "gpt-oss-120b");
-      use_provider("cerebras");
+   <- !artifact_ready;
+      !configured(true);
       ask("agent1", "classify", "Classify: tomato", Rid);
-      valid(Rid, IsValid);
-      !request_review(Rid, IsValid).
+      !reviewed(Rid).
 
-+!request_review(Rid, true)
+// ACHIEVEMENT: create and focus the GL artifact
++!artifact_ready
+   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+      focus(GlId).
+
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- configure("model", M);
+      use_provider(P).
+
+// SERENDIPITY
++!reviewed(Rid)
+   :  reviewed(Rid)
+   <- .println("[Runner] Already reviewed: ", Rid).
+
+// DECOMPOSITION: bind validity → branch
++!reviewed(Rid)
+   <- valid(Rid, IsValid);
+      !reviewed_branch(Rid, IsValid).
+
+// ACHIEVEMENT: valid → send to reviewer, wait with timeout
++!reviewed_branch(Rid, true)
+   :  review_timeout(Timeout)
    <- field(Rid, "label", Label);
       candidate(Rid, Cid);
-      +pending(Rid, Cid);
-      .println("Sending '", Label, "' to reviewer agent...");
-      .send(reviewer, achieve, review(Label, Rid)).
+      .println("[Runner] Sending '", Label, "' to reviewer...");
+      .send(reviewer, achieve, review_request(Label, Cid));
+      .wait({+peer_approved(Cid)}, Timeout);
+      if (not peer_approved(Cid)) {
+          .println("[Runner] Review TIMED OUT → REJECTED");
+          reject(Cid);
+      };
+      ?reviewed(Cid).
 
-+!request_review(Rid, false)
-   <- .println("Invalid output -> SKIPPED");
-      .stopMAS.
+// ACHIEVEMENT: invalid
++!reviewed_branch(Rid, false)
+   <- .println("[Runner] Invalid output → SKIPPED").
 
-+approved(Rid)
-   :  pending(Rid, Cid)
-   <- -pending(Rid, Cid);
+// REACTIVE: peer approved
++review_approved(Cid)
+   <- +peer_approved(Cid);
       accept(Cid);
-      .println("Peer approved -> ACCEPTED");
-      .stopMAS.
+      .println("[Runner] Peer approved → ACCEPTED").
 
-+disapproved(Rid, Reason)
-   :  pending(Rid, Cid)
-   <- -pending(Rid, Cid);
-      reject(Cid);
-      .println("Peer rejected: ", Reason, " -> REJECTED");
-      .stopMAS.
+// REACTIVE: peer rejected
++review_rejected(Cid, Reason)
+   <- reject(Cid);
+      .println("[Runner] Peer rejected: ", Reason, " → REJECTED").
+
+// RECOVERY
+-!reviewed(Rid)
+   <- .println("[Runner] Review FAILED for ", Rid).

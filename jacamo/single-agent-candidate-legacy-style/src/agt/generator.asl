@@ -1,13 +1,10 @@
-// Pipeline: start → !artifact_ready → !banner → !configured → !classified(food) → !invoked → !deliberated → accept|reject
+// Pipeline: start → !artifact_ready → !banner → !classified(food) → !invoked → !deliberated → accept|reject
 /**
- * Single Agent Candidate — Generative Layer demonstration (JaCaMo).
+ * Single Agent Candidate — Legacy style (JaCaMo).
  *
- * Shows the fundamental Generative Layer flow using CArtAgO artifacts:
- *   artifact_ready → configure → invoke → validate → accept/reject → trace
+ * Uses direct configure() / use_provider() artifact operations
+ * as shown on https://www.generativelayers.com/providers.html
  */
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
 
 // DOMAIN MODEL
 classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
@@ -18,7 +15,8 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 +!start
    <- !artifact_ready;
       !banner;
-      !configured(true);
+      configure("model", "gpt-oss-120b");
+      use_provider("cerebras");
       !classified("apple").
 
 // ACHIEVEMENT: create and focus the GL artifact
@@ -29,15 +27,9 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 // ACHIEVEMENT: display banner (actions only)
 +!banner
    <- providers(Providers);
-      .println("=== Generative Layer Single Agent Candidate Demo (JaCaMo) ===");
+      .println("=== Generative Layer Single Agent Candidate Demo (Legacy Style) ===");
       .println("");
       .println("[Layer] Available providers: ", Providers).
-
-// ACHIEVEMENT: setup (actions only)
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- configure("model", M);
-      use_provider(P).
 
 // DECOMPOSITION: classify = invoke + deliberate
 +!classified(FoodItem)
@@ -116,7 +108,8 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
    <- trace(Rid, TraceId);
       .println("");
       .println("[TRACE] traceId = ", TraceId);
-      .println("=== Demo Complete ===").
+      .println("=== Demo Complete ===");
+      .stopMAS.
 
 // RECOVERY
 -!classified(FoodItem)

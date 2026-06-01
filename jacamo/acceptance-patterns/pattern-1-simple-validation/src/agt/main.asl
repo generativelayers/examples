@@ -1,29 +1,66 @@
+// Pipeline: start → !artifact_ready → !configured → !validated → ?validated
 /**
  * Pattern 1: Simple Validation — JaCaMo
  *
  * The simplest governance pattern: accept valid output, reject invalid.
  * Demonstrates the fundamental valid/invalid context-guard branching.
+ *
+ * NOTE: In JaCaMo, GL operations (valid, field, candidate, accept, reject)
+ * are CArtAgO artifact operations — they MUST be called in plan bodies,
+ * not in context guards. valid() binds its result; branching is done
+ * by passing the bound value to a subgoal.
  */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+
+// DOMAIN MODEL
+validated(Rid) :- accepted(Rid).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 1: Simple Validation ===");
-      makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
-      focus(GlId);
-      configure("model", "gpt-oss-120b");
-      use_provider("cerebras");
+   <- !artifact_ready;
+      !configured(true);
       ask("agent1", "classify", "Classify: apple", Rid);
-      valid(Rid, IsValid);
-      !decide(Rid, IsValid).
+      !validated(Rid).
 
-+!decide(Rid, true)
+// ACHIEVEMENT: create and focus the GL artifact
++!artifact_ready
+   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+      focus(GlId).
+
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- configure("model", M);
+      use_provider(P).
+
+// SERENDIPITY
++!validated(Rid)
+   :  validated(Rid)
+   <- .println("Already validated: ", Rid).
+
+// DECOMPOSITION: bind validity → branch
++!validated(Rid)
+   <- valid(Rid, IsValid);
+      !validated_branch(Rid, IsValid).
+
+// ACHIEVEMENT: valid → accept, verify
++!validated_branch(Rid, true)
    <- candidate(Rid, Cid);
       accept(Cid);
+      +accepted(Rid);
       field(Rid, "label", Label);
-      .println("Valid output -> ACCEPTED: ", Label);
-      .stopMAS.
+      +classified(Label);
+      ?validated(Rid);
+      .println("ACCEPTED: ", Label).
 
-+!decide(Rid, false)
-   <- .println("Invalid output -> REJECTED");
-      .stopMAS.
+// ACHIEVEMENT: invalid → reject
++!validated_branch(Rid, false)
+   <- .println("Invalid output → REJECTED").
+
+// RECOVERY
+-!validated(Rid)
+   <- .println("Validation FAILED for ", Rid).

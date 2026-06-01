@@ -1,17 +1,19 @@
-// Pipeline: main → !configured → !classified(food) → !deliberated → accept|reject → ?classified
+// Pipeline: main → !banner → !classified(food) → !invoked → !deliberated → accept|reject
+/**
+ * Single Agent Candidate — Legacy style (ASTRA).
+ *
+ * Uses direct gl.configure() / gl.use_provider() calls
+ * as shown on https://www.generativelayers.com/providers.html
+ */
 agent Main {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
         formula classified(string, string, string);
         formula accepted(string);
         formula rejected(string, string);
     }
-
-    initial setting("model", "gemini-2.5-flash"), setting("provider", "gemini");
 
     // DOMAIN MODEL
     inference classified(string item, string label, string conf) :-
@@ -20,21 +22,16 @@ agent Main {
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         !banner();
-        !configured(true);
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         !classified("apple");
     }
 
     // ACHIEVEMENT: display banner
     rule +!banner() {
-        console.println("=== Generative Layer Single Agent Candidate Demo ===");
+        console.println("=== Generative Layer Single Agent Candidate Demo (Legacy Style) ===");
         console.println("");
         console.println("[Layer] Available providers: " + gl.providers());
-    }
-
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
     }
 
     // DECOMPOSITION: classify = invoke + deliberate

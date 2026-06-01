@@ -17,22 +17,27 @@ agent Main {
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        console.println("=== Generative Layer Invalid Output Rejection Demo ===");
-        console.println("");
+        !banner();
         !configured(true);
-
-        // Attempt 1 — strict fields (missing 'category' triggers validation failure)
         !try_classify(
             "Classify 'banana' as food. Return label, confidence, and category.",
             "label,confidence,category", 1
         );
-
-        // Attempt 2 — relaxed fields (should succeed)
         !try_classify(
             "Classify 'banana' as food. Return label and confidence.",
             "label,confidence", 2
         );
+        !demo_complete();
+    }
 
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Generative Layer Invalid Output Rejection Demo ===");
+        console.println("");
+    }
+
+    // ACHIEVEMENT: display demo complete
+    rule +!demo_complete() {
         console.println("");
         console.println("=== Demo Complete ===");
     }
@@ -43,51 +48,46 @@ agent Main {
         gl.use_provider(p);
     }
 
-    // DECOMPOSITION: classify = invoke + deliberate
+    // DECOMPOSITION: classify = log attempt → invoke → deliberate
     rule +!try_classify(string prompt, string requiredCsv, int attemptNum) {
+        !log_attempt(attemptNum, requiredCsv);
+        !deliberated(
+            gl.invoke("agent_a", "classify_food", "llm.answer", "ANSWER", prompt, requiredCsv),
+            attemptNum);
+    }
+
+    // ACHIEVEMENT: log attempt
+    rule +!log_attempt(int attemptNum, string requiredCsv) {
         console.println("[ATTEMPT " + attemptNum + "] Invoking gl...");
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
-        string rid = gl.invoke(
-            "agent_a", "classify_food", "llm.answer", "ANSWER",
-            prompt, requiredCsv
-        );
-        !deliberated(rid, attemptNum);
     }
 
     // ACHIEVEMENT: valid → accept
     rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == true {
-        string outcome = gl.outcome(rid);
-        string cid = gl.candidate(rid);
-        string label = gl.field(rid, "label");
-        string confidence = gl.field(rid, "confidence");
-
-        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = true");
 
-        gl.accept(cid);
-        +accepted(cid);
-        +classification(label, confidence, "attempt_" + attemptNum);
+        gl.accept(gl.candidate(rid));
+        +accepted(gl.candidate(rid));
+        +classification(gl.field(rid, "label"), gl.field(rid, "confidence"), "attempt_" + attemptNum);
         -+attempt(attemptNum);
 
         console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
-        console.println("[ATTEMPT " + attemptNum + "]     label      = " + label);
-        console.println("[ATTEMPT " + attemptNum + "]     confidence = " + confidence);
+        console.println("[ATTEMPT " + attemptNum + "]     label      = " + gl.field(rid, "label"));
+        console.println("[ATTEMPT " + attemptNum + "]     confidence = " + gl.field(rid, "confidence"));
         console.println("");
     }
 
     // ACHIEVEMENT: invalid → reject (fail-closed)
     rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == false {
-        string outcome = gl.outcome(rid);
-        string cid = gl.candidate(rid);
-
-        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
 
-        gl.reject(cid);
-        +rejected(cid, outcome);
+        gl.reject(gl.candidate(rid));
+        +rejected(gl.candidate(rid), gl.outcome(rid));
         -+attempt(attemptNum);
 
-        console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + outcome);
+        console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
         console.println("");
     }

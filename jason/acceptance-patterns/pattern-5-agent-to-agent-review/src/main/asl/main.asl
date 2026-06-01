@@ -1,42 +1,69 @@
+// Pipeline: start → !configured → !reviewed → send(reviewer) → wait → ?reviewed
 /**
  * Pattern 5: Agent-to-Agent Review — Jason (Main agent)
  *
  * Generates LLM output, sends the label to a peer reviewer
- * agent via BDI messaging. Accepts/rejects based on reviewer's verdict.
+ * agent via messaging. Accepts/rejects based on reviewer's verdict.
  */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+review_timeout(30000).
+
+// DOMAIN MODEL
+reviewed(Cid) :- peer_approved(Cid).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 5: Agent-to-Agent Review ===");
-      gl.configure("model", "gpt-oss-120b");
-      gl.use_provider("cerebras");
+   <- !configured(true);
       gl.ask("agent1", "classify", "Classify: tomato", Rid);
-      !request_review(Rid).
+      !reviewed(Rid).
 
-+!request_review(Rid)
-   :  gl.valid(Rid, true)
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
+
+// SERENDIPITY
++!reviewed(Rid)
+   :  reviewed(Rid)
+   <- .println("[Runner] Already reviewed: ", Rid).
+
+// ACHIEVEMENT: valid → send to reviewer, wait with timeout
++!reviewed(Rid)
+   :  gl.valid(Rid, true) & review_timeout(Timeout)
    <- gl.field(Rid, "label", Label);
       gl.candidate(Rid, Cid);
-      +pending(Rid, Cid);
-      .println("Sending '", Label, "' to reviewer agent...");
-      .send(reviewer, achieve, review(Label, Rid)).
+      .println("[Runner] Sending '", Label, "' to reviewer...");
+      .send(reviewer, achieve, review_request(Label, Cid));
+      .wait({+peer_approved(Cid)}, Timeout);
+      if (not peer_approved(Cid)) {
+          .println("[Runner] Review TIMED OUT → REJECTED");
+          gl.reject(Cid);
+      };
+      ?reviewed(Cid).
 
-+!request_review(Rid)
-   :  gl.valid(Rid, false)
-   <- .println("Invalid output -> SKIPPED");
-      .stopMAS.
+// ACHIEVEMENT: invalid
++!reviewed(Rid)
+   <- .println("[Runner] Invalid output → SKIPPED").
 
-+approved(Rid)
-   :  pending(Rid, Cid)
-   <- -pending(Rid, Cid);
+// REACTIVE: peer approved
++review_approved(Cid)
+   <- +peer_approved(Cid);
       gl.accept(Cid);
-      .println("Peer approved -> ACCEPTED");
-      .stopMAS.
+      .println("[Runner] Peer approved → ACCEPTED").
 
-+disapproved(Rid, Reason)
-   :  pending(Rid, Cid)
-   <- -pending(Rid, Cid);
-      gl.reject(Cid);
-      .println("Peer rejected: ", Reason, " -> REJECTED");
-      .stopMAS.
+// REACTIVE: peer rejected
++review_rejected(Cid, Reason)
+   <- gl.reject(Cid);
+      .println("[Runner] Peer rejected: ", Reason, " → REJECTED").
+
+// RECOVERY
+-!reviewed(Rid)
+   <- .println("[Runner] Review FAILED for ", Rid).

@@ -11,7 +11,7 @@
  * Agents can query these to validate message content at runtime.
  */
 
-// β”€β”€ GL Type Definitions (as initial beliefs) β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
+// β”€β”€ GL Type Definitions (as initial beliefs) 
 
 // Candidate status values
 gl_status(proposed).

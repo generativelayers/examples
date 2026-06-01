@@ -1,0 +1,21 @@
+/*
+ * JaCaMo Project — GL Artifact Communication Demo
+ *
+ * Two agents share a GLArtifact. The Generator creates and accepts
+ * candidates through artifact operations. The Assessor perceives
+ * accepted candidates through observable properties (CArtAgO sensing)
+ * — no ACL messages needed.
+ *
+ * This demonstrates an alternative to FIPA messaging:
+ * agents communicate through the shared artifact environment.
+ */
+
+MAS gl_artifact_demo {
+
+    environment: jaca.CartagoEnvironment
+
+    agents:
+        generator  agentArchClass jaca.CAgentArch;
+
+    aslSourcePath: "src/agt";
+}

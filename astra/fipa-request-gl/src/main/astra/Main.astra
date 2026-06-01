@@ -9,9 +9,14 @@ agent Main {
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
+        !banner();
+        !agents_created(true);
+    }
+
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
         console.println("=== FIPA Request + Generative Layer Demo ===");
         console.println("");
-        !agents_created(true);
     }
 
     // ACHIEVEMENT: create agents (actions only)

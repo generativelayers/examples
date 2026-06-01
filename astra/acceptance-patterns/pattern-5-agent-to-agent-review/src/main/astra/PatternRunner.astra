@@ -40,16 +40,14 @@ agent PatternRunner {
 
     // ACHIEVEMENT: valid → send to reviewer, wait with timeout
     rule +!reviewed(string rid) : gl.valid(rid) == true & review_timeout(int timeout) {
-        string cid = gl.candidate(rid);
-        string label = gl.field(rid, "label");
-        console.println("[Runner] Sending '" + label + "' to reviewer...");
-        send(request, "reviewer", review_request(label, cid));
-        wait(review_approved(cid), timeout);
-        if (~review_approved(cid)) {
+        console.println("[Runner] Sending '" + gl.field(rid, "label") + "' to reviewer...");
+        send(request, "reviewer", review_request(gl.field(rid, "label"), gl.candidate(rid)));
+        wait(review_approved(gl.candidate(rid)), timeout);
+        if (~review_approved(gl.candidate(rid))) {
             console.println("[Runner] Review TIMED OUT → REJECTED");
-            gl.reject(cid);
+            gl.reject(gl.candidate(rid));
         }
-        ?reviewed(cid);
+        ?reviewed(gl.candidate(rid));
     }
 
     // ACHIEVEMENT: invalid

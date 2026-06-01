@@ -1,41 +1,83 @@
+// Pipeline: start → !artifact_ready → !configured → !assessed → !assess_confidence(high|low|medium) → ?assessed
 /**
  * Pattern 3: Confidence Threshold — JaCaMo
  *
  * Extracts the confidence field and makes a tiered decision:
- * high (1.0) → accept, low (0.0) → reject, otherwise → escalate.
+ * high → accept, low → reject + fail, otherwise → escalate.
  */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+threshold("high", "1.0"). threshold("low", "0.0").
+
+// DOMAIN MODEL
+assessed(Rid) :- confidence_tier(Rid, _).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 3: Confidence Threshold ===");
-      makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
-      focus(GlId);
-      configure("model", "gpt-oss-120b");
-      use_provider("cerebras");
-      ask("agent1", "classify", "Classify: apple", Rid);
-      valid(Rid, IsValid);
-      !decide(Rid, IsValid).
+   <- !artifact_ready;
+      !configured(true);
+      invoke("agent1", "classify", "llm.answer", "ANSWER",
+             "Classify: apple", "label,confidence", Rid);
+      !assessed(Rid).
 
-+!decide(Rid, true)
+// ACHIEVEMENT: create and focus the GL artifact
++!artifact_ready
+   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+      focus(GlId).
+
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- configure("model", M);
+      use_provider(P).
+
+// SERENDIPITY
++!assessed(Rid)
+   :  assessed(Rid)
+   <- .println("Already assessed: ", Rid).
+
+// DECOMPOSITION: bind validity → branch
++!assessed(Rid)
+   <- valid(Rid, IsValid);
+      !assessed_branch(Rid, IsValid).
+
+// DECOMPOSITION: valid → extract confidence, delegate to tier assessment
++!assessed_branch(Rid, true)
    <- candidate(Rid, Cid);
       field(Rid, "confidence", Conf);
-      !assess(Cid, Conf).
+      !assess_confidence(Rid, Cid, Conf).
 
-+!decide(Rid, false)
-   <- .println("Invalid output -> REJECTED");
-      .stopMAS.
+// ACHIEVEMENT: invalid output
++!assessed_branch(Rid, false)
+   <- .println("Invalid output → REJECTED").
 
-+!assess(Cid, "1.0")
+// ACHIEVEMENT: high confidence → accept
++!assess_confidence(Rid, Cid, Conf)
+   :  threshold("high", Conf)
    <- accept(Cid);
-      .println("High confidence (1.0) -> ACCEPTED");
-      .stopMAS.
+      +accepted(Rid);
+      +confidence_tier(Rid, "high");
+      ?assessed(Rid);
+      .println("High confidence (", Conf, ") → ACCEPTED").
 
-+!assess(Cid, "0.0")
+// ACHIEVEMENT: low confidence → reject, fail
++!assess_confidence(Rid, Cid, Conf)
+   :  threshold("low", Conf)
    <- reject(Cid);
-      .println("Low confidence (0.0) -> REJECTED");
-      .stopMAS.
+      +confidence_tier(Rid, "low");
+      ?assessed(Rid);
+      .println("Low confidence (", Conf, ") → REJECTED");
+      .fail.
 
-+!assess(Cid, Conf)
-   <- .println("Medium confidence (", Conf, ") -> ESCALATING");
-      .stopMAS.
+// ACHIEVEMENT: medium confidence → escalate (catch-all)
++!assess_confidence(Rid, Cid, Conf)
+   <- +confidence_tier(Rid, "medium");
+      ?assessed(Rid);
+      .println("Medium confidence → ESCALATING").
+
+// RECOVERY
+-!assessed(Rid)
+   <- .println("Assessment FAILED for ", Rid).

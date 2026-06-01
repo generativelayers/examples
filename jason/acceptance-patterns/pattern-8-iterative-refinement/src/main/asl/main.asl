@@ -1,3 +1,4 @@
+// Pipeline: start → !configured → !refined → !critiqued → !improved → !accepted_final → ?refined
 /**
  * Pattern 8: Iterative Refinement — Jason
  *
@@ -6,49 +7,91 @@
  * Only the final refined version is accepted.
  */
 
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
+setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+
+// DOMAIN MODEL
+refined(Rid) :- accepted_final(true).
+
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- .println("=== Pattern 8: Iterative Refinement ===");
-      gl.configure("model", "gpt-oss-120b");
-      gl.use_provider("cerebras");
-      // Step 1: Generate a draft
-      gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", DraftRid);
-      !critique(DraftRid).
+   <- !configured(true);
+      gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", Rid);
+      !refined(Rid).
 
-// Step 2: Critique the draft
-+!critique(DraftRid)
+// ACHIEVEMENT: setup (actions only)
++!configured(true)
+   :  setting("model", M) & setting("provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
+
+// SERENDIPITY
++!refined(Rid)
+   :  refined(Rid)
+   <- .println("Already refined: ", Rid).
+
+// DECOMPOSITION: refine = critique + improve + accept
++!refined(Rid)
+   :  gl.valid(Rid, true)
+   <- !critiqued(Rid);
+      !improved(Rid);
+      !accepted_final(Rid);
+      ?refined(Rid).
+
+// ACHIEVEMENT: invalid draft
++!refined(Rid)
+   <- -+pipeline_step("draft_failed");
+      .println("Draft invalid → ABORTED").
+
+// ACHIEVEMENT: critique
++!critiqued(DraftRid)
    :  gl.valid(DraftRid, true)
-   <- .println("Draft generated (valid) -> requesting critique");
+   <- -+pipeline_step("critiquing");
       gl.ask("agent1", "critique", "Critique the summary of photosynthesis", CritiqueRid);
-      !refine(CritiqueRid).
+      +critiqued(CritiqueRid);
+      .println("Draft → critique requested").
 
-+!critique(DraftRid)
-   :  gl.valid(DraftRid, false)
-   <- .println("Draft invalid -> ABORTED");
-      .stopMAS.
+// SERENDIPITY
++!critiqued(Rid)
+   :  critiqued(Rid)
+   <- .println("Already critiqued").
 
-// Step 3: Refine based on critique
-+!refine(CritiqueRid)
-   :  gl.valid(CritiqueRid, true)
-   <- .println("Critique received (valid) -> refining");
+// ACHIEVEMENT: improve
++!improved(Rid)
+   :  critiqued(CritiqueRid) & gl.valid(CritiqueRid, true)
+   <- -+pipeline_step("refining");
       gl.ask("agent1", "refine", "Improve the summary based on feedback", FinalRid);
-      !accept_final(FinalRid).
+      +improved(FinalRid);
+      .println("Critique → refinement requested").
 
-+!refine(CritiqueRid)
-   :  gl.valid(CritiqueRid, false)
-   <- .println("Critique invalid -> ABORTED");
-      .stopMAS.
+// SERENDIPITY
++!improved(Rid)
+   :  improved(Rid)
+   <- .println("Already improved").
 
-// Step 4: Accept the refined version
-+!accept_final(FinalRid)
-   :  gl.valid(FinalRid, true)
+// ACHIEVEMENT: accept final
++!accepted_final(Rid)
+   :  improved(FinalRid) & gl.valid(FinalRid, true)
    <- gl.candidate(FinalRid, Cid);
       gl.accept(Cid);
-      .println("Draft -> Critique -> Refine pipeline complete -> ACCEPTED");
-      .stopMAS.
+      +accepted_final(true);
+      -+pipeline_step("accepted");
+      .println("Draft → Critique → Refine → ACCEPTED").
 
-+!accept_final(FinalRid)
-   :  gl.valid(FinalRid, false)
-   <- .println("Final refinement invalid -> ABORTED");
-      .stopMAS.
+// RECOVERY at each level
+-!refined(Rid)
+   <- -+pipeline_step("failed");
+      .println("Refinement pipeline FAILED for ", Rid).
+
+-!critiqued(Rid)
+   <- -+pipeline_step("critique_failed");
+      .println("Critique FAILED → pipeline aborted").
+
+-!improved(Rid)
+   <- -+pipeline_step("refine_failed");
+      .println("Refinement FAILED → pipeline aborted").
