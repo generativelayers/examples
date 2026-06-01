@@ -2,70 +2,68 @@
  * Pattern 3: Confidence Threshold — ASTRA
  *
  * Extracts the confidence field and makes a tiered decision:
- * high (1.0) → accept, low (0.0) → reject with S.fail(), otherwise → escalate.
- * Demonstrates: constants, query(), -+, S.fail(), inference.
+ * high → accept, low → reject with S.fail(), otherwise → escalate.
+ * Demonstrates: beliefs as configuration, query(), -+, S.fail(), inference,
+ * context-driven binding (no constants or imperative assignments).
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
     module System S;
 
-    constant string MODEL = "gpt-oss-120b";
-    constant string PROVIDER = "cerebras";
-    constant string HIGH_CONFIDENCE = "1.0";
-    constant string LOW_CONFIDENCE = "0.0";
-
     types pattern_types {
+        formula setting(string, string);
+        formula threshold(string, string);
         formula confidence_tier(string);
         formula last_confidence(string);
         formula is_high_confidence(boolean);
     }
 
+    // Configuration as beliefs (can be updated at runtime, queried in contexts)
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial threshold("high", "1.0"), threshold("low", "0.0");
+
     // Inference: derive whether we have high confidence
     inference is_high_confidence(true) :- confidence_tier("high");
 
-    rule +!main(list args) {
+    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
         console.println("=== Pattern 3: Confidence Threshold ===");
-        gl.configure("model", MODEL);
-        gl.use_provider(PROVIDER);
-        string rid = gl.invoke(
-            "agent1",
-            "classify",
-            "llm.answer",
-            "ANSWER",
-            "Classify: apple",
-            "label,confidence"
-        );
+        gl.configure("model", model);
+        gl.use_provider(provider);
+        !classify_and_decide("Classify: apple");
+    }
+
+    rule +!classify_and_decide(string prompt) {
+        string rid = gl.invoke("agent1", "classify", "llm.answer", "ANSWER", prompt, "label,confidence");
         !decide(rid);
     }
 
     rule +!decide(string rid) : gl.valid(rid) == true {
-        string cid = gl.candidate(rid);
-        string conf = gl.field(rid, "confidence");
-        +last_confidence(conf);
-        !assess(cid, conf);
+        +last_confidence(gl.field(rid, "confidence"));
+        !assess(gl.candidate(rid), gl.field(rid, "confidence"));
     }
 
     rule +!decide(string rid) {
         console.println("Invalid output → REJECTED");
     }
 
-    // High confidence — accept immediately
-    rule +!assess(string cid, string conf) : conf == HIGH_CONFIDENCE {
+    // High confidence — accept (threshold bound from belief, not constant)
+    rule +!assess(string cid, string conf) : threshold("high", conf) {
         gl.accept(cid);
         -+confidence_tier("high");
-        console.println("High confidence (" + HIGH_CONFIDENCE + ") → ACCEPTED");
+        query(threshold("high", string t));
+        console.println("High confidence (" + t + ") → ACCEPTED");
     }
 
     // Low confidence — reject and fail the plan
-    rule +!assess(string cid, string conf) : conf == LOW_CONFIDENCE {
+    rule +!assess(string cid, string conf) : threshold("low", conf) {
         gl.reject(cid);
         -+confidence_tier("low");
-        console.println("Low confidence (" + LOW_CONFIDENCE + ") → REJECTED");
+        console.println("Low confidence → REJECTED");
         S.fail();
     }
 
-    // Medium confidence — escalate (catch-all), use query() to confirm tier
+    // Medium confidence — escalate (catch-all)
     rule +!assess(string cid, string conf) {
         -+confidence_tier("medium");
         query(confidence_tier(string tier));

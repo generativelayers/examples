@@ -9,39 +9,31 @@ agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    constant string MODEL = "gpt-oss-120b";
-    constant string PROVIDER = "cerebras";
-
     types pattern_types {
+        formula setting(string, string);
         formula known(string);
         formula is_known_label(string, boolean);
     }
 
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial known("fruit"), known("vegetable"), known("grain");
 
     // Inference: derive whether a label is a known category
     inference is_known_label(string L, true) :- known(L);
 
-    rule +!main(list args) {
+    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
         console.println("=== Pattern 2: Content Inspection (RAG Test) ===");
-        gl.configure("model", MODEL);
-        gl.use_provider(PROVIDER);
-        string rid = gl.invoke_with_beliefs(
-            "agent1",
-            "classify",
-            "llm.answer",
-            "ANSWER",
+        gl.configure("model", model);
+        gl.use_provider(provider);
+        !decide(gl.invoke_with_beliefs(
+            "agent1", "classify", "llm.answer", "ANSWER",
             "Based on the Agent beliefs, classify: apple",
-            "label,confidence",
-            "category(apple, fruit)"
-        );
-        !decide(rid);
+            "label,confidence", "category(apple, fruit)"
+        ));
     }
 
     rule +!decide(string rid) : gl.valid(rid) == true {
-        string label = gl.field(rid, "label");
-        string cid = gl.candidate(rid);
-        !check_content(cid, label);
+        !check_content(gl.candidate(rid), gl.field(rid, "label"));
     }
 
     rule +!decide(string rid) {

@@ -3,84 +3,75 @@
  *
  * Asks 3 providers the same question. Stores votes as beliefs,
  * then uses foreach to count matches and determine consensus.
- * Demonstrates: constants, inference, query(), -+, foreach,
- * ~= inequality, forall, practical reasoning.
+ * Demonstrates: inference, query(), -+, foreach, ~= inequality,
+ * beliefs as configuration, practical reasoning.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    constant string MODEL = "gpt-oss-120b";
-    constant string PROVIDER = "cerebras";
-    constant int REQUIRED_VOTES = 2;
-
     types pattern_types {
+        formula setting(string, string);
+        formula required_votes(int);
         formula vote(int, string);
         formula vote_count(int);
         formula consensus_label(string);
         formula has_consensus(boolean);
     }
 
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial required_votes(2);
     initial vote_count(0);
 
     // Inference: consensus reached when we have a consensus_label
     inference has_consensus(true) :- consensus_label(string _);
 
-    rule +!main(list args) {
+    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
         console.println("=== Pattern 7: Majority Voting ===");
-        gl.configure("model", MODEL);
-        gl.use_provider(PROVIDER);
+        gl.configure("model", model);
+        gl.use_provider(provider);
 
-        // Collect votes from 3 providers
-        string r1 = gl.ask("agent1", "classify", "Classify: tomato");
-        string r2 = gl.ask("agent1", "classify", "Classify: tomato");
-        string r3 = gl.ask("agent1", "classify", "Classify: tomato");
-
-        // Store each vote as a belief
-        +vote(1, gl.field(r1, "label"));
-        +vote(2, gl.field(r2, "label"));
-        +vote(3, gl.field(r3, "label"));
+        // Collect votes — store as beliefs directly
+        +vote(1, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
+        +vote(2, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
+        +vote(3, gl.field(gl.ask("agent1", "classify", "Classify: tomato"), "label"));
 
         // Print all votes using foreach over beliefs
         foreach(vote(int id, string label)) {
             console.println("  Vote " + id + ": " + label);
         }
 
-        // Extract labels for comparison
+        // Extract labels for comparison via query()
         query(vote(1, string l1));
         query(vote(2, string l2));
         query(vote(3, string l3));
 
-        !tally(r1, l1, l2, l3);
+        !tally(l1, l2, l3);
     }
 
     // Providers 1 & 2 agree (specific rule first)
-    rule +!tally(string r1, string l1, string l2, string l3) : l1 == l2 {
-        string cid = gl.candidate(r1);
-        gl.accept(cid);
+    rule +!tally(string l1, string l2, string l3) : l1 == l2 {
         +consensus_label(l1);
-        -+vote_count(REQUIRED_VOTES);
+        -+vote_count(2);
         console.println("Majority agrees on '" + l1 + "' (1&2) → ACCEPTED");
     }
 
     // Providers 1 & 3 agree
-    rule +!tally(string r1, string l1, string l2, string l3) : l1 == l3 {
-        string cid = gl.candidate(r1);
-        gl.accept(cid);
+    rule +!tally(string l1, string l2, string l3) : l1 == l3 {
         +consensus_label(l1);
-        -+vote_count(REQUIRED_VOTES);
+        -+vote_count(2);
         console.println("Majority agrees on '" + l1 + "' (1&3) → ACCEPTED");
     }
 
     // Providers 2 & 3 agree — but 1 disagrees (uses ~= inequality)
-    rule +!tally(string r1, string l1, string l2, string l3) : l2 == l3 & l1 ~= l2 {
+    rule +!tally(string l1, string l2, string l3) : l2 == l3 & l1 ~= l2 {
         +consensus_label(l2);
-        -+vote_count(REQUIRED_VOTES);
+        -+vote_count(2);
         console.println("Majority agrees on '" + l2 + "' (2&3, 1 disagrees) → ACCEPTED");
     }
 
     // No consensus — all disagree (catch-all)
-    rule +!tally(string r1, string l1, string l2, string l3) {
+    rule +!tally(string l1, string l2, string l3) {
         query(vote_count(int count));
         console.println("No consensus — all disagree (votes: " + count + ") → NO DECISION");
     }

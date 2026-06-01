@@ -3,53 +3,53 @@
  *
  * Generates LLM output, then sends the label to a peer reviewer
  * agent for approval via FIPA messaging. Waits with timeout.
- * Demonstrates: constants, FIPA messaging, wait(,timeout),
- * try/recover, ~negation-as-failure.
+ * Demonstrates: FIPA messaging, wait(,timeout), try/recover,
+ * beliefs as configuration, ~negation-as-failure, inference.
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
     module System S;
 
-    constant string MODEL = "gpt-oss-120b";
-    constant string PROVIDER = "cerebras";
-    constant int REVIEW_TIMEOUT = 30000;
-
     types review_types {
+        formula setting(string, string);
+        formula review_timeout(int);
         formula review_request(string, string);
         formula review_approved(string);
         formula review_rejected(string, string);
         formula review_done(boolean);
     }
 
-    // Inference: review is done when either approved or rejected message arrived
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial review_timeout(30000);
+
+    // Inference: review is done when approved message arrived
     inference review_done(true) :- review_approved(string _);
 
     initial !start();
 
-    rule +!start() {
-        gl.configure("model", MODEL);
-        gl.use_provider(PROVIDER);
+    rule +!start() : setting("model", string model) & setting("provider", string provider) {
+        gl.configure("model", model);
+        gl.use_provider(provider);
 
         try {
-            string rid = gl.ask("agent1", "classify", "Classify: tomato");
-            !request_review(rid);
+            !request_review(gl.ask("agent1", "classify", "Classify: tomato"));
         } recover {
             console.println("[Runner] LLM call failed — try/recover caught it");
         }
     }
 
     // Valid output — send to peer reviewer and wait with timeout
-    rule +!request_review(string rid) : gl.valid(rid) == true {
+    rule +!request_review(string rid) : gl.valid(rid) == true & review_timeout(int timeout) {
         string label = gl.field(rid, "label");
         string cid = gl.candidate(rid);
         console.println("[Runner] Sending '" + label + "' to reviewer...");
         send(request, "reviewer", review_request(label, cid));
 
         // Wait for reviewer response with timeout
-        wait(review_approved(cid), REVIEW_TIMEOUT);
+        wait(review_approved(cid), timeout);
         if (~review_approved(cid)) {
-            console.println("[Runner] Review TIMED OUT after " + REVIEW_TIMEOUT + "ms → REJECTED");
+            console.println("[Runner] Review TIMED OUT after " + timeout + "ms → REJECTED");
             gl.reject(cid);
         }
     }
