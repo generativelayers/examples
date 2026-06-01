@@ -1,73 +1,112 @@
 /**
- * Pattern 8: Iterative Refinement — ASTRA
+ * Pattern 8: Iterative Refinement — Practical Reasoning Style
  *
  * Three-step pipeline: Draft → Critique → Refine → Accept.
- * Each step goes through the governance pipeline.
- * Only the final refined version is accepted.
- * Demonstrates: -+ atomic, inference for pipeline state tracking,
- * beliefs as configuration.
+ *
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +draft_ready(rid) → !refined(rid)
+ *   P2 Means-End:       +!refined(rid) → pipeline → ?refined(rid)
+ *   P2 Serendipity:     +!refined(rid) : refined(rid) → done
+ *   P4 Decomposition:   !refined decomposes to !critiqued, !improved
+ *   P5 Recovery:        -!refined, -!critiqued, -!improved → log
+ *   P7 Domain Model:    inference refined :- pipeline_step("accepted")
+ *   Also: -+ atomic, belief-driven pipeline state
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
+        formula draft_ready(string);
+        formula refined(string);
+        formula critiqued(string);
+        formula improved(string);
         formula pipeline_step(string);
-        formula pipeline_complete(boolean);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // Inference: the pipeline is complete when step is "accepted"
-    inference pipeline_complete(true) :- pipeline_step("accepted");
+    // DOMAIN MODEL (Principle 7)
+    inference refined(string rid) :- pipeline_step("accepted");
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
+    // INITIAL: generate draft, store as belief
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
         console.println("=== Pattern 8: Iterative Refinement ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-
-        // Step 1: Generate a draft
+        gl.configure("model", m);
+        gl.use_provider(p);
         +pipeline_step("drafting");
-        !critique(gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis"));
+        +draft_ready(gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis"));
     }
 
-    // Step 2: Critique the draft — valid
-    rule +!critique(string draftRid) : gl.valid(draftRid) == true {
-        -+pipeline_step("critiquing");
-        console.println("Draft generated (valid) → requesting critique");
-        !refine(gl.ask("agent1", "critique", "Critique the summary of photosynthesis"));
+    // DELIBERATION (Principle 1) — draft ready, needs refinement
+    rule +draft_ready(string rid) : gl.valid(rid) == true & ~refined(rid) {
+        !refined(rid);
     }
 
-    // Step 2: Draft invalid — abort
-    rule +!critique(string draftRid) {
+    // REACTIVE (Principle 6) — invalid draft
+    rule +draft_ready(string rid) : gl.valid(rid) ~= true {
         -+pipeline_step("draft_failed");
         console.println("Draft invalid → ABORTED");
     }
 
-    // Step 3: Refine based on critique — valid
-    rule +!refine(string critiqueRid) : gl.valid(critiqueRid) == true {
+    // SERENDIPITY (Principle 2) — already refined
+    rule +!refined(string rid) : refined(rid) {
+        console.println("Already refined: " + rid);
+    }
+
+    // DECOMPOSITION (Principle 4) — refine = critique + improve + accept
+    rule +!refined(string rid) : gl.valid(rid) == true {
+        !critiqued(rid);
+        !improved(rid);
+        !accepted_final(rid);
+        ?refined(rid);
+    }
+
+    // ACHIEVEMENT: critique the draft (Principle 2)
+    rule +!critiqued(string draftRid) : gl.valid(draftRid) == true {
+        -+pipeline_step("critiquing");
+        console.println("Draft generated (valid) → requesting critique");
+        +critiqued(gl.ask("agent1", "critique", "Critique the summary of photosynthesis"));
+    }
+
+    // SERENDIPITY
+    rule +!critiqued(string rid) : critiqued(rid) {
+        console.println("Already critiqued");
+    }
+
+    // ACHIEVEMENT: improve based on critique (Principle 2)
+    rule +!improved(string rid) : critiqued(string critiqueRid) & gl.valid(critiqueRid) == true {
         -+pipeline_step("refining");
         console.println("Critique received (valid) → refining");
-        !accept_final(gl.ask("agent1", "refine", "Improve the summary based on feedback"));
+        +improved(gl.ask("agent1", "refine", "Improve the summary based on feedback"));
     }
 
-    // Step 3: Critique invalid — abort
-    rule +!refine(string critiqueRid) {
-        -+pipeline_step("critique_failed");
-        console.println("Critique invalid → ABORTED");
+    // SERENDIPITY
+    rule +!improved(string rid) : improved(rid) {
+        console.println("Already improved");
     }
 
-    // Step 4: Accept the refined version — valid
-    rule +!accept_final(string finalRid) : gl.valid(finalRid) == true {
+    // ACHIEVEMENT: accept the final version (Principle 2)
+    rule +!accepted_final(string rid) : improved(string finalRid) & gl.valid(finalRid) == true {
         gl.accept(gl.candidate(finalRid));
         -+pipeline_step("accepted");
         console.println("Draft → Critique → Refine pipeline complete → ACCEPTED");
     }
 
-    // Step 4: Final refinement invalid — abort
-    rule +!accept_final(string finalRid) {
+    // RECOVERY (Principle 5) — at each level
+    rule -!refined(string rid) {
+        -+pipeline_step("failed");
+        console.println("Refinement pipeline FAILED for " + rid);
+    }
+
+    rule -!critiqued(string rid) {
+        -+pipeline_step("critique_failed");
+        console.println("Critique FAILED → pipeline aborted");
+    }
+
+    rule -!improved(string rid) {
         -+pipeline_step("refine_failed");
-        console.println("Final refinement invalid → ABORTED");
+        console.println("Refinement FAILED → pipeline aborted");
     }
 }

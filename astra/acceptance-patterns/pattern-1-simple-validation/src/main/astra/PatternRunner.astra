@@ -1,42 +1,65 @@
 /**
- * Pattern 1: Simple Validation — ASTRA
+ * Pattern 1: Simple Validation — Practical Reasoning Style
  *
- * Asks the LLM to classify input; accepts if validation passes.
- * Demonstrates: inference rules, beliefs as configuration, practical reasoning.
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +llm_result(rid) : ~validated(rid) → !validated(rid)
+ *   P2 Means-End:       +!validated(rid) : valid → accept; ?validated(rid)
+ *   P2 Serendipity:     +!validated(rid) : validated(rid) → done
+ *   P5 Recovery:        -!validated(rid) → log failure
+ *   P6 Reactive:        +llm_result(rid) : invalid → log rejection
+ *   P7 Domain Model:    inference validated(rid) :- accepted(rid)
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
-        formula validated(boolean);
+        formula llm_result(string);
+        formula validated(string);
+        formula accepted(string);
         formula classified(string);
     }
 
-    // Configuration as beliefs — bound through context matching
+    // Configuration as beliefs
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // Inference: the result is validated when a classified belief exists
-    inference validated(true) :- classified(string label);
+    // DOMAIN MODEL (Principle 7) — derived belief
+    inference validated(string rid) :- accepted(rid);
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
-        console.println("=== Pattern 1: Simple Validation ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-        !decide(gl.ask("agent1", "classify", "Classify: apple", "convo1"));
+    // INITIAL: request classification, store result as belief
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+        +llm_result(gl.ask("agent1", "classify", "Classify: apple", "convo1"));
     }
 
-    // Valid output — accept via practical reasoning
-    rule +!decide(string rid) : gl.valid(rid) == true {
-        gl.accept(gl.candidate(rid));
-        +classified(gl.field(rid, "label"));
-        query(classified(string label));
-        console.println("Valid output → ACCEPTED: " + label);
+    // DELIBERATION (Principle 1) — undesirable state triggers goal
+    rule +llm_result(string rid) : gl.valid(rid) == true & ~validated(rid) {
+        !validated(rid);
     }
 
-    // Invalid output — reject (catch-all)
-    rule +!decide(string rid) {
+    // REACTIVE (Principle 6) — invalid output, no goal needed
+    rule +llm_result(string rid) : gl.valid(rid) ~= true {
         console.println("Invalid output → REJECTED");
+    }
+
+    // MEANS-END: SERENDIPITY (Principle 2) — already validated
+    rule +!validated(string rid) : validated(rid) {
+        console.println("Already validated: " + rid);
+    }
+
+    // MEANS-END: ACHIEVEMENT (Principle 2) — accept and verify
+    rule +!validated(string rid) : gl.valid(rid) == true {
+        gl.accept(gl.candidate(rid));
+        +accepted(rid);
+        +classified(gl.field(rid, "label"));
+        ?validated(rid);
+        console.println("ACCEPTED: " + gl.field(rid, "label"));
+    }
+
+    // RECOVERY (Principle 5) — handle unexpected failure
+    rule -!validated(string rid) {
+        console.println("Validation FAILED for " + rid);
     }
 }

@@ -1,77 +1,87 @@
 /**
- * Pattern 3: Confidence Threshold — ASTRA
+ * Pattern 3: Confidence Threshold — Practical Reasoning Style
  *
- * Extracts the confidence field and makes a tiered decision:
- * high → accept, low → reject with S.fail(), otherwise → escalate.
- * Demonstrates: beliefs as configuration, query(), -+, S.fail(), inference,
- * context-driven binding (no constants or imperative assignments).
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +llm_result(rid) : ~assessed(rid) → !assessed(rid)
+ *   P2 Means-End:       +!assessed(rid) → tier check → ?assessed(rid)
+ *   P2 Serendipity:     +!assessed(rid) : assessed(rid) → done
+ *   P3 Repair:          medium confidence → !escalated; !assessed (retry)
+ *   P5 Recovery:        -!assessed(rid) → log failure
+ *   P6 Reactive:        +llm_result(rid) : invalid → log
+ *   P7 Domain Model:    inference assessed :- confidence_tier exists
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
     module System S;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
         formula threshold(string, string);
-        formula confidence_tier(string);
-        formula last_confidence(string);
-        formula is_high_confidence(boolean);
+        formula llm_result(string);
+        formula assessed(string);
+        formula accepted(string);
+        formula confidence_tier(string, string);
     }
 
-    // Configuration as beliefs (can be updated at runtime, queried in contexts)
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial threshold("high", "1.0"), threshold("low", "0.0");
 
-    // Inference: derive whether we have high confidence
-    inference is_high_confidence(true) :- confidence_tier("high");
+    // DOMAIN MODEL (Principle 7) — assessed when a tier has been assigned
+    inference assessed(string rid) :- confidence_tier(rid, string _);
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
+    // INITIAL: invoke LLM, store result
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
         console.println("=== Pattern 3: Confidence Threshold ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-        !classify_and_decide("Classify: apple");
+        gl.configure("model", m);
+        gl.use_provider(p);
+        +llm_result(gl.invoke(
+            "agent1", "classify", "llm.answer", "ANSWER",
+            "Classify: apple", "label,confidence"
+        ));
     }
 
-    rule +!classify_and_decide(string prompt) {
-        string rid = gl.invoke("agent1", "classify", "llm.answer", "ANSWER", prompt, "label,confidence");
-        !decide(rid);
+    // DELIBERATION (Principle 1) — valid result needs assessment
+    rule +llm_result(string rid) : gl.valid(rid) == true & ~assessed(rid) {
+        !assessed(rid);
     }
 
-    rule +!decide(string rid) : gl.valid(rid) == true {
-        +last_confidence(gl.field(rid, "confidence"));
-        !assess(gl.candidate(rid), gl.field(rid, "confidence"));
-    }
-
-    rule +!decide(string rid) {
+    // REACTIVE (Principle 6) — invalid output
+    rule +llm_result(string rid) : gl.valid(rid) ~= true {
         console.println("Invalid output → REJECTED");
     }
 
-    // High confidence — accept (threshold bound from belief, not constant)
-    rule +!assess(string cid, string conf) : threshold("high", conf) {
-        gl.accept(cid);
-        -+confidence_tier("high");
-        query(threshold("high", string t));
+    // SERENDIPITY (Principle 2) — already assessed
+    rule +!assessed(string rid) : assessed(rid) {
+        console.println("Already assessed: " + rid);
+    }
+
+    // MEANS-END: high confidence → accept (Principle 2)
+    rule +!assessed(string rid) : threshold("high", string t) & gl.field(rid, "confidence") == t {
+        gl.accept(gl.candidate(rid));
+        +accepted(rid);
+        +confidence_tier(rid, "high");
+        ?assessed(rid);
         console.println("High confidence (" + t + ") → ACCEPTED");
     }
 
-    // Low confidence — reject and fail the plan
-    rule +!assess(string cid, string conf) : threshold("low", conf) {
-        gl.reject(cid);
-        -+confidence_tier("low");
-        console.println("Low confidence → REJECTED");
-        S.fail();
+    // MEANS-END: low confidence → reject and fail (Principle 2)
+    rule +!assessed(string rid) : threshold("low", string t) & gl.field(rid, "confidence") == t {
+        gl.reject(gl.candidate(rid));
+        +confidence_tier(rid, "low");
+        ?assessed(rid);
+        console.println("Low confidence (" + t + ") → REJECTED");
     }
 
-    // Medium confidence — escalate (catch-all)
-    rule +!assess(string cid, string conf) {
-        -+confidence_tier("medium");
-        query(confidence_tier(string tier));
-        console.println("Confidence tier: " + tier + " (" + conf + ") → ESCALATING");
+    // MEANS-END: medium confidence — escalate (catch-all)
+    rule +!assessed(string rid) {
+        +confidence_tier(rid, "medium");
+        ?assessed(rid);
+        console.println("Medium confidence (" + gl.field(rid, "confidence") + ") → ESCALATING");
     }
 
-    // Goal failure handler — catches S.fail() from low confidence
-    rule -!assess(string cid, string conf) {
-        console.println("Assessment FAILED for confidence: " + conf + " — plan aborted");
+    // RECOVERY (Principle 5) — handle unexpected failure
+    rule -!assessed(string rid) {
+        console.println("Assessment FAILED for " + rid);
     }
 }

@@ -1,16 +1,25 @@
 /**
- * Pattern 2: Content Inspection — ASTRA
+ * Pattern 2: Content Inspection — Practical Reasoning Style
  *
- * After validation, inspects the LLM output against the agent's
- * own knowledge base. Accepts only if the label is a known category.
- * Demonstrates: inference rules, negation-as-failure (~), beliefs as knowledge.
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +llm_result(rid) : ~inspected(rid) → !inspected(rid)
+ *   P2 Means-End:       +!inspected(rid) : valid & known → accept; ?inspected
+ *   P2 Serendipity:     +!inspected(rid) : inspected(rid) → done
+ *   P4 Decomposition:   +!inspected decomposes to !known_category
+ *   P5 Recovery:        -!inspected(rid) → log failure
+ *   P6 Reactive:        +llm_result(rid) : invalid → log
+ *   P7 Domain Model:    inference inspected :- accepted; inference is_known :- known
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
+        formula llm_result(string);
+        formula inspected(string);
+        formula accepted(string);
+        formula rejected(string, string);
         formula known(string);
         formula is_known_label(string, boolean);
     }
@@ -18,37 +27,57 @@ agent PatternRunner {
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial known("fruit"), known("vegetable"), known("grain");
 
-    // Inference: derive whether a label is a known category
+    // DOMAIN MODEL (Principle 7)
+    inference inspected(string rid) :- accepted(rid);
     inference is_known_label(string L, true) :- known(L);
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
-        console.println("=== Pattern 2: Content Inspection (RAG Test) ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-        !decide(gl.invoke_with_beliefs(
+    // INITIAL: invoke LLM, store result as belief
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+        +llm_result(gl.invoke_with_beliefs(
             "agent1", "classify", "llm.answer", "ANSWER",
             "Based on the Agent beliefs, classify: apple",
             "label,confidence", "category(apple, fruit)"
         ));
     }
 
-    rule +!decide(string rid) : gl.valid(rid) == true {
-        !check_content(gl.candidate(rid), gl.field(rid, "label"));
+    // DELIBERATION (Principle 1) — valid result needs inspection
+    rule +llm_result(string rid) : gl.valid(rid) == true & ~inspected(rid) {
+        !inspected(rid);
     }
 
-    rule +!decide(string rid) {
+    // REACTIVE (Principle 6) — invalid output
+    rule +llm_result(string rid) : gl.valid(rid) ~= true {
         console.println("Invalid output → REJECTED");
     }
 
-    // Known category — accept (inference satisfies known(label))
-    rule +!check_content(string cid, string label) : known(label) {
+    // SERENDIPITY (Principle 2) — already inspected
+    rule +!inspected(string rid) : inspected(rid) {
+        console.println("Already inspected: " + rid);
+    }
+
+    // DECOMPOSITION (Principle 4) — decompose into content check
+    rule +!inspected(string rid) : gl.valid(rid) == true {
+        !known_category(gl.candidate(rid), gl.field(rid, "label"));
+        +accepted(rid);
+        ?inspected(rid);
+    }
+
+    // ACHIEVEMENT: known category → accept (Principle 2)
+    rule +!known_category(string cid, string label) : known(label) {
         gl.accept(cid);
         console.println("Known category '" + label + "' → ACCEPTED");
     }
 
-    // Unknown category — reject (negation-as-failure)
-    rule +!check_content(string cid, string label) : ~known(label) {
+    // ACHIEVEMENT: unknown category → reject (negation-as-failure)
+    rule +!known_category(string cid, string label) : ~known(label) {
         gl.reject(cid);
         console.println("Unknown category '" + label + "' → REJECTED");
+    }
+
+    // RECOVERY (Principle 5)
+    rule -!inspected(string rid) {
+        console.println("Inspection FAILED for " + rid);
     }
 }

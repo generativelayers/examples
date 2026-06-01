@@ -1,17 +1,25 @@
 /**
- * Pattern 6: Belief Consistency — ASTRA
+ * Pattern 6: Belief Consistency — Practical Reasoning Style
  *
- * Compares the LLM output against existing beliefs.
- * Matches → confirm, Contradicts → reject, New → adopt.
- * Demonstrates: inference rules, negation-as-failure (~), belief querying,
- * beliefs as configuration.
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +llm_result(rid) : ~consistent(rid) → !consistent(rid)
+ *   P2 Means-End:       +!consistent(rid) → check belief → ?consistent(rid)
+ *   P2 Serendipity:     +!consistent(rid) : consistent(rid) → done
+ *   P4 Decomposition:   !consistent decomposes to !belief_checked
+ *   P5 Recovery:        -!consistent(rid) → log failure
+ *   P6 Reactive:        +llm_result(rid) : invalid → log
+ *   P7 Domain Model:    inference consistent :- belief_checked;
+ *                        inference has_prior_belief :- category
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
+        formula llm_result(string);
+        formula consistent(string);
+        formula belief_checked(string);
         formula category(string, string);
         formula has_prior_belief(string, boolean);
     }
@@ -19,40 +27,61 @@ agent PatternRunner {
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial category("apple", "fruit"), category("carrot", "vegetable");
 
-    // Inference: derive whether a prior belief exists for an item
+    // DOMAIN MODEL (Principle 7)
+    inference consistent(string rid) :- belief_checked(rid);
     inference has_prior_belief(string item, true) :- category(item, string _);
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
+    // INITIAL: invoke LLM
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
         console.println("=== Pattern 6: Belief Consistency ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-        !decide(gl.ask("agent1", "classify", "Classify: apple"));
+        gl.configure("model", m);
+        gl.use_provider(p);
+        +llm_result(gl.ask("agent1", "classify", "Classify: apple"));
     }
 
-    rule +!decide(string rid) : gl.valid(rid) == true {
-        !check_belief(gl.candidate(rid), "apple", gl.field(rid, "label"));
+    // DELIBERATION (Principle 1)
+    rule +llm_result(string rid) : gl.valid(rid) == true & ~consistent(rid) {
+        !consistent(rid);
     }
 
-    rule +!decide(string rid) {
+    // REACTIVE (Principle 6) — invalid
+    rule +llm_result(string rid) : gl.valid(rid) ~= true {
         console.println("Invalid output → REJECTED");
     }
 
-    // Consistent with existing belief — confirm
-    rule +!check_belief(string cid, string item, string label) : category(item, label) {
+    // SERENDIPITY (Principle 2) — already checked
+    rule +!consistent(string rid) : consistent(rid) {
+        console.println("Already checked: " + rid);
+    }
+
+    // DECOMPOSITION (Principle 4) — decompose to belief check
+    rule +!consistent(string rid) : gl.valid(rid) == true {
+        !belief_checked("apple", gl.field(rid, "label"), gl.candidate(rid));
+        +belief_checked(rid);
+        ?consistent(rid);
+    }
+
+    // ACHIEVEMENT: consistent with existing belief → confirm
+    rule +!belief_checked(string item, string label, string cid) : category(item, label) {
         gl.accept(cid);
         console.println("Matches belief: " + item + " = " + label + " → CONFIRMED");
     }
 
-    // Contradicts existing belief — reject
-    rule +!check_belief(string cid, string item, string label) : category(item, string existing) & ~category(item, label) {
+    // ACHIEVEMENT: contradicts existing belief → reject
+    rule +!belief_checked(string item, string label, string cid) : category(item, string existing) & ~category(item, label) {
         gl.reject(cid);
         console.println("Contradicts belief! Expected " + existing + " got " + label + " → REJECTED");
     }
 
-    // No prior belief — adopt as new knowledge (negation-as-failure)
-    rule +!check_belief(string cid, string item, string label) : ~category(item, string any) {
+    // ACHIEVEMENT: no prior belief → adopt as new knowledge
+    rule +!belief_checked(string item, string label, string cid) : ~category(item, string any) {
         gl.accept(cid);
         +category(item, label);
         console.println("No prior belief for " + item + " → NEW KNOWLEDGE: " + label);
+    }
+
+    // RECOVERY (Principle 5)
+    rule -!consistent(string rid) {
+        console.println("Consistency check FAILED for " + rid);
     }
 }

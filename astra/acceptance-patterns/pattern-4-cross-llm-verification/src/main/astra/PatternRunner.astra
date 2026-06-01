@@ -1,74 +1,107 @@
 /**
- * Pattern 4: Cross-LLM Verification — ASTRA
+ * Pattern 4: Cross-LLM Verification — Practical Reasoning Style
  *
- * Asks a second LLM to verify the first LLM's output.
- * Uses try/recover for resilience, ~= for label comparison.
- * Demonstrates: try/recover, ~= inequality, inference, query(),
- * beliefs as configuration, -+ atomic.
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +llm_result(rid) : ~verified(rid) → !verified(rid)
+ *   P2 Means-End:       +!verified(rid) → cross-check → ?verified(rid)
+ *   P2 Serendipity:     +!verified(rid) : verified(rid) → done
+ *   P4 Decomposition:   !verified decomposes to !cross_checked
+ *   P5 Recovery:        -!verified(rid) → log; -!cross_checked → reject
+ *   P6 Reactive:        +llm_result(rid) : invalid → log
+ *   P7 Domain Model:    inference verified :- cross_checked
+ *   Also: try/recover, ~= inequality
  */
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
     module System S;
 
-    types pattern_types {
+    types governance {
         formula setting(string, string);
-        formula verified(boolean);
+        formula llm_result(string);
+        formula verified(string);
+        formula cross_checked(string);
+        formula accepted(string);
         formula attempt_count(int);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial attempt_count(0);
 
-    // Inference: verified is true when the belief exists
-    inference verified(true) :- verified(true);
+    // DOMAIN MODEL (Principle 7)
+    inference verified(string rid) :- cross_checked(rid);
 
-    rule +!main(list args) : setting("model", string model) & setting("provider", string provider) {
+    // INITIAL: invoke first LLM
+    rule +!main(list args) : setting("model", string m) & setting("provider", string p) {
         console.println("=== Pattern 4: Cross-LLM Verification ===");
-        gl.configure("model", model);
-        gl.use_provider(provider);
-
-        // try/recover: resilient LLM call
+        gl.configure("model", m);
+        gl.use_provider(p);
         try {
-            !verify(gl.ask("agent1", "classify", "Classify: apple"));
+            +llm_result(gl.ask("agent1", "classify", "Classify: apple"));
         } recover {
             console.println("First LLM call failed → try/recover caught it");
         }
     }
 
-    // First LLM valid — send to second for verification
-    rule +!verify(string rid) : gl.valid(rid) == true {
-        console.println("First LLM says: " + gl.field(rid, "label") + " — cross-checking...");
+    // DELIBERATION (Principle 1) — valid result needs verification
+    rule +llm_result(string rid) : gl.valid(rid) == true & ~verified(rid) {
+        !verified(rid);
+    }
 
-        // Increment attempt counter using query() + -+
+    // REACTIVE (Principle 6) — invalid output
+    rule +llm_result(string rid) : gl.valid(rid) ~= true {
+        console.println("Invalid output → ABORTED");
+    }
+
+    // SERENDIPITY (Principle 2) — already verified
+    rule +!verified(string rid) : verified(rid) {
+        console.println("Already verified: " + rid);
+    }
+
+    // DECOMPOSITION (Principle 4) — decompose into cross-check
+    rule +!verified(string rid) : gl.valid(rid) == true {
+        // Track attempts
         query(attempt_count(int count));
         -+attempt_count(count + 1);
 
-        // Second LLM call also wrapped in try/recover
+        console.println("First LLM says: " + gl.field(rid, "label") + " — cross-checking...");
+        !cross_checked(rid);
+        ?verified(rid);
+        console.println("Cross-verification complete → VERIFIED");
+    }
+
+    // ACHIEVEMENT: labels match → accept (Principle 2)
+    rule +!cross_checked(string rid) : gl.valid(rid) == true {
         try {
-            string vrid = gl.ask("agent1", "verify", "Is this correct? apple = " + gl.field(rid, "label"));
-            !compare(gl.candidate(rid), vrid, gl.field(rid, "label"), gl.field(vrid, "label"));
+            string vrid = gl.ask("agent1", "verify",
+                "Is this correct? apple = " + gl.field(rid, "label"));
+            !compare_labels(rid, gl.field(rid, "label"), gl.field(vrid, "label"));
+            +cross_checked(rid);
         } recover {
-            console.println("Second LLM call failed → REJECTED");
-            gl.reject(gl.candidate(rid));
+            console.println("Second LLM call failed");
+            S.fail();
         }
     }
 
-    // First LLM invalid — cannot proceed
-    rule +!verify(string rid) {
-        console.println("First LLM invalid → ABORTED");
-    }
-
-    // Both labels match — accept
-    rule +!compare(string cid, string vrid, string l1, string l2) : l1 == l2 {
-        gl.accept(cid);
-        +verified(true);
+    // Labels match — accept
+    rule +!compare_labels(string rid, string l1, string l2) : l1 == l2 {
+        gl.accept(gl.candidate(rid));
+        +accepted(rid);
         console.println("Labels match ('" + l1 + "' == '" + l2 + "') → ACCEPTED");
     }
 
-    // Labels disagree — reject (uses ~= inequality operator)
-    rule +!compare(string cid, string vrid, string l1, string l2) : l1 ~= l2 {
-        gl.reject(cid);
+    // Labels disagree — reject (uses ~= inequality)
+    rule +!compare_labels(string rid, string l1, string l2) : l1 ~= l2 {
+        gl.reject(gl.candidate(rid));
         console.println("Labels DISAGREE ('" + l1 + "' ~= '" + l2 + "') → REJECTED");
+    }
+
+    // RECOVERY (Principle 5)
+    rule -!verified(string rid) {
+        console.println("Verification FAILED for " + rid);
+    }
+
+    rule -!cross_checked(string rid) {
+        console.println("Cross-check FAILED — could not verify " + rid);
     }
 }

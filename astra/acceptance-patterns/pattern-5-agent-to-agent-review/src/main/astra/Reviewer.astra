@@ -1,9 +1,14 @@
 /**
- * Pattern 5: Agent-to-Agent Review — ASTRA (Reviewer)
+ * Pattern 5: Agent-to-Agent Review — Practical Reasoning Style (Reviewer)
  *
  * Pure BDI reviewer — no LLM involved.
- * Checks the label against its own beliefs and responds.
- * Demonstrates: inference rules, negation-as-failure (~), FIPA messaging.
+ * Collier Principles demonstrated:
+ *   P1 Deliberation:    +review_pending(label, cid, sender) → !review_decided
+ *   P2 Means-End:       +!review_decided : known → approve; ?review_decided
+ *   P2 Serendipity:     +!review_decided : already decided → done
+ *   P5 Recovery:        -!review_decided → log failure
+ *   P6 Reactive:        @message triggers belief adoption (Reactive)
+ *   P7 Domain Model:    inference is_acceptable :- known_food
  */
 agent Reviewer {
     module Console console;
@@ -12,24 +17,50 @@ agent Reviewer {
         formula review_request(string, string);
         formula review_approved(string);
         formula review_rejected(string, string);
+        formula review_pending(string, string, string);
+        formula review_decided(string);
         formula known_food(string);
         formula is_acceptable(string, boolean);
     }
 
     initial known_food("fruit"), known_food("vegetable"), known_food("grain");
 
-    // Inference: derive whether a label is acceptable for review
+    // DOMAIN MODEL (Principle 7) — derived beliefs
     inference is_acceptable(string L, true) :- known_food(L);
 
-    // Known food — approve (practical reasoning: specific rule first)
-    rule @message(request, string sender, review_request(string label, string cid)) : known_food(label) {
-        console.println("[Reviewer] '" + label + "' is known → APPROVED");
-        send(inform, sender, review_approved(cid));
+    // REACTIVE (Principle 6) — incoming request → store as belief
+    rule @message(request, string sender, review_request(string label, string cid)) {
+        +review_pending(label, cid, sender);
     }
 
-    // Unknown food — reject (negation-as-failure)
-    rule @message(request, string sender, review_request(string label, string cid)) : ~known_food(label) {
+    // DELIBERATION (Principle 1) — pending review triggers decision goal
+    rule +review_pending(string label, string cid, string sender) : ~review_decided(cid) {
+        !review_decided(cid);
+    }
+
+    // SERENDIPITY (Principle 2) — already decided
+    rule +!review_decided(string cid) : review_decided(cid) {
+        console.println("[Reviewer] Already decided for " + cid);
+    }
+
+    // MEANS-END: ACHIEVEMENT — known food → approve (Principle 2)
+    rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & known_food(label) {
+        console.println("[Reviewer] '" + label + "' is known → APPROVED");
+        send(inform, sender, review_approved(cid));
+        +review_decided(cid);
+        ?review_decided(cid);
+    }
+
+    // MEANS-END: ACHIEVEMENT — unknown food → reject (negation-as-failure)
+    rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & ~known_food(label) {
         console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
         send(inform, sender, review_rejected(cid, "not in knowledge base"));
+        +review_decided(cid);
+        ?review_decided(cid);
+    }
+
+    // RECOVERY (Principle 5)
+    rule -!review_decided(string cid) {
+        console.println("[Reviewer] Review decision FAILED for " + cid);
     }
 }
