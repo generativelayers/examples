@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.generativelayers.examples</groupId>
     <artifactId>jason-pattern-8-iterative-refinement</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -14,7 +14,7 @@
         <dependency>
             <groupId>com.generativelayers</groupId>
             <artifactId>generative-layers-core</artifactId>
-            <version>0.1.1</version>
+            <version>0.1.2</version>
         </dependency>
         <dependency>
             <groupId>io.github.jason-lang</groupId>

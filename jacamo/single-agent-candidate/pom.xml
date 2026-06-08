@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.generativelayers.examples</groupId>
     <artifactId>jacamo-gl-artifact-demo</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -22,7 +22,7 @@
         <dependency>
             <groupId>com.generativelayers</groupId>
             <artifactId>generative-layers-core</artifactId>
-            <version>0.1.1</version>
+            <version>0.1.2</version>
         </dependency>
         <!-- Jason agent interpreter -->
         <dependency>

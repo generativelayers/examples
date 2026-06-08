@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.generativelayers.examples</groupId>
     <artifactId>astra-pattern-5-agent-to-agent-review</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
     <parent>
         <groupId>com.astralanguage</groupId>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.generativelayers</groupId>
             <artifactId>generative-layers-core</artifactId>
-            <version>0.1.1</version>
+            <version>0.1.2</version>
         </dependency>
     </dependencies>
 </project>
