@@ -37,24 +37,24 @@ agent PatternRunner {
         ?consensus_reached(true);
     }
 
-    rule +!tallied(string r1, string l, string r2, string l, string r3, string l3) {
+    rule +!tallied(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l2 {
         gl.accept(gl.candidate(r1));
         gl.accept(gl.candidate(r2));
-        +consensus_label(l);
+        +consensus_label(l1);
         console.println("Majority 1 and 2 - ACCEPTED");
     }
 
-    rule +!tallied(string r1, string l, string r2, string l2, string r3, string l) {
+    rule +!tallied(string r1, string l1, string r2, string l2, string r3, string l3) : l1 == l3 {
         gl.accept(gl.candidate(r1));
         gl.accept(gl.candidate(r3));
-        +consensus_label(l);
+        +consensus_label(l1);
         console.println("Majority 1 and 3 - ACCEPTED");
     }
 
-    rule +!tallied(string r1, string l1, string r2, string l, string r3, string l) {
+    rule +!tallied(string r1, string l1, string r2, string l2, string r3, string l3) : l2 == l3 {
         gl.accept(gl.candidate(r2));
         gl.accept(gl.candidate(r3));
-        +consensus_label(l);
+        +consensus_label(l2);
         console.println("Majority 2 and 3 - ACCEPTED");
     }
 
