@@ -1,4 +1,3 @@
-// Pipeline: main → !configured → !assessed → tier(high|low|medium) → ?assessed
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
@@ -7,70 +6,19 @@ agent PatternRunner {
     types governance {
         formula setting(string, string);
         formula configured(boolean);
-        formula threshold(string, string);
         formula assessed(string);
         formula accepted(string);
+        formula rejected(string);
+        formula escalated(string);
         formula confidence_tier(string, string);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
-    initial threshold("high", "1.0"), threshold("low", "0.0");
 
-    // DOMAIN MODEL
-    inference assessed(string rid) :- confidence_tier(rid, string _);
+    inference assessed(string rid) :- accepted(rid);
+    inference assessed(string rid) :- rejected(rid);
+    inference assessed(string rid) :- escalated(rid);
 
-    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         !configured(true);
-        !assessed(gl.invoke(
-            "agent1", "classify", "llm.answer", "ANSWER",
-            "Classify: apple", "label,confidence"
-        ));
-    }
-
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
-    }
-
-    // SERENDIPITY
-    rule +!assessed(string rid) : assessed(rid) {
-        console.println("Already assessed: " + rid);
-    }
-
-    // ACHIEVEMENT: high confidence → accept
-    rule +!assessed(string rid) : gl.valid(rid) == true & threshold("high", string t) & gl.field(rid, "confidence") == t {
-        gl.accept(gl.candidate(rid));
-        +accepted(rid);
-        +confidence_tier(rid, "high");
-        ?assessed(rid);
-        console.println("High confidence (" + t + ") → ACCEPTED");
-    }
-
-    // ACHIEVEMENT: low confidence → reject, fail
-    rule +!assessed(string rid) : gl.valid(rid) == true & threshold("low", string t) & gl.field(rid, "confidence") == t {
-        gl.reject(gl.candidate(rid));
-        +confidence_tier(rid, "low");
-        ?assessed(rid);
-        console.println("Low confidence (" + t + ") → REJECTED");
-        S.fail();
-    }
-
-    // ACHIEVEMENT: medium confidence → escalate (catch-all valid)
-    rule +!assessed(string rid) : gl.valid(rid) == true {
-        +confidence_tier(rid, "medium");
-        ?assessed(rid);
-        console.println("Medium confidence → ESCALATING");
-    }
-
-    // ACHIEVEMENT: invalid output
-    rule +!assessed(string rid) {
-        console.println("Invalid output → REJECTED");
-    }
-
-    // RECOVERY
-    rule -!assessed(string rid) {
-        console.println("Assessment FAILED for " + rid);
-    }
-}
+        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER",
