@@ -1,87 +1,89 @@
-// Pipeline: start → !configured → !votes_collected → !vote_cast(1,2,3) → !consensus_reached → !tallied → ?consensus_reached
-/**
- * Pattern 7: Majority Voting — Jason
- *
- * Asks 3 providers the same question. Compares labels pairwise.
- * Accepts only if 2+ providers agree on the same label.
- */
+setting("provider1", "gemini"). setting("model1", "gemini-2.5-flash").
+setting("provider2", "cerebras"). setting("model2", "gpt-oss-120b").
+setting("provider3", "gemini"). setting("model3", "gemini-2.5-flash").
 
-// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
-//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
-
-// DOMAIN MODEL
 consensus_reached(true) :- consensus_label(_).
 
 !start.
 
-// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- !configured(true);
-      !votes_collected(true);
+   <- !votes_collected(true);
       !consensus_reached(true).
 
-// ACHIEVEMENT: setup (actions only)
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- gl.configure("model", M);
-      gl.use_provider(P).
-
-// DECOMPOSITION: collect = cast 3 votes → print summary
 +!votes_collected(true)
    <- !vote_cast(1);
       !vote_cast(2);
       !vote_cast(3);
       !print_vote_summary.
 
-// ACHIEVEMENT: cast a single vote (actions only)
-+!vote_cast(N)
-   <- gl.ask("agent1", "classify", "Classify: tomato", Rid);
++!vote_cast(1)
+   :  setting("model1", M) & setting("provider1", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P);
+      gl.ask("agent1", "classify", "Classify: tomato", Rid);
+      gl.candidate(Rid, Cid);
       gl.field(Rid, "label", Label);
-      +vote(N, Label).
+      +vote(1, Rid, Cid, Label).
 
-// ACHIEVEMENT: print summary of collected votes
++!vote_cast(2)
+   :  setting("model2", M) & setting("provider2", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P);
+      gl.ask("agent1", "classify", "Classify: tomato", Rid);
+      gl.candidate(Rid, Cid);
+      gl.field(Rid, "label", Label);
+      +vote(2, Rid, Cid, Label).
+
++!vote_cast(3)
+   :  setting("model3", M) & setting("provider3", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P);
+      gl.ask("agent1", "classify", "Classify: tomato", Rid);
+      gl.candidate(Rid, Cid);
+      gl.field(Rid, "label", Label);
+      +vote(3, Rid, Cid, Label).
+
 +!print_vote_summary
-   <- for (vote(Id, Label)) {
+   <- for (vote(Id, _, _, Label)) {
           .println("  Vote ", Id, ": ", Label);
       }.
 
-// SERENDIPITY
 +!consensus_reached(true)
    :  consensus_reached(true)
    <- ?consensus_label(Winner);
       .println("Already have consensus: ", Winner).
 
-// DECOMPOSITION: tally the votes → verify
 +!consensus_reached(true)
-   :  vote(1, L1) & vote(2, L2) & vote(3, L3)
-   <- !tallied(L1, L2, L3);
+   :  vote(1, R1, C1, L1) & vote(2, R2, C2, L2) & vote(3, R3, C3, L3)
+   <- !tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3);
       ?consensus_reached(true).
 
-// ACHIEVEMENT: 1 & 2 agree
-+!tallied(L1, L2, L3)
-   :  L1 == L2
-   <- +consensus_label(L1);
-      .println("Majority agrees on '", L1, "' (1&2) → ACCEPTED").
++!tallied(R1, C1, L, R2, C2, L, R3, C3, L3)
+   <- gl.accept(C1);
+      gl.accept(C2);
+      gl.reject(C3);
+      +consensus_label(L);
+      .println("Majority agrees on '", L, "' (1&2) - ACCEPTED").
 
-// ACHIEVEMENT: 1 & 3 agree
-+!tallied(L1, L2, L3)
-   :  L1 == L3
-   <- +consensus_label(L1);
-      .println("Majority agrees on '", L1, "' (1&3) → ACCEPTED").
++!tallied(R1, C1, L, R2, C2, L2, R3, C3, L)
+   <- gl.accept(C1);
+      gl.reject(C2);
+      gl.accept(C3);
+      +consensus_label(L);
+      .println("Majority agrees on '", L, "' (1&3) - ACCEPTED").
 
-// ACHIEVEMENT: 2 & 3 agree, 1 disagrees
-+!tallied(L1, L2, L3)
-   :  L2 == L3 & L1 \== L2
-   <- +consensus_label(L2);
-      .println("Majority agrees on '", L2, "' (2&3) → ACCEPTED").
++!tallied(R1, C1, L1, R2, C2, L, R3, C3, L)
+   <- gl.reject(C1);
+      gl.accept(C2);
+      gl.accept(C3);
+      +consensus_label(L);
+      .println("Majority agrees on '", L, "' (2&3) - ACCEPTED").
 
-// ACHIEVEMENT: no consensus
-+!tallied(L1, L2, L3)
-   <- .println("No consensus — all disagree → NO DECISION").
++!tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3)
+   <- gl.reject(C1);
+      gl.reject(C2);
+      gl.reject(C3);
+      .println("No consensus - all candidates REJECTED").
 
-// RECOVERY
 -!consensus_reached(true)
    <- .println("Consensus determination FAILED").
