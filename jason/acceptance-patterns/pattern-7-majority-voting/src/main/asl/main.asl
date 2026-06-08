@@ -58,26 +58,29 @@ consensus_reached(true) :- consensus_label(_).
    <- !tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3);
       ?consensus_reached(true).
 
-+!tallied(R1, C1, L, R2, C2, L, R3, C3, L3)
++!tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3)
+   :  L1 == L2
    <- gl.accept(C1);
       gl.accept(C2);
       gl.reject(C3);
-      +consensus_label(L);
-      .println("Majority agrees on '", L, "' (1&2) - ACCEPTED").
+      +consensus_label(L1);
+      .println("Majority agrees on '", L1, "' (1&2) - ACCEPTED").
 
-+!tallied(R1, C1, L, R2, C2, L2, R3, C3, L)
++!tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3)
+   :  L1 == L3
    <- gl.accept(C1);
       gl.reject(C2);
       gl.accept(C3);
-      +consensus_label(L);
-      .println("Majority agrees on '", L, "' (1&3) - ACCEPTED").
+      +consensus_label(L1);
+      .println("Majority agrees on '", L1, "' (1&3) - ACCEPTED").
 
-+!tallied(R1, C1, L1, R2, C2, L, R3, C3, L)
++!tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3)
+   :  L2 == L3
    <- gl.reject(C1);
       gl.accept(C2);
       gl.accept(C3);
-      +consensus_label(L);
-      .println("Majority agrees on '", L, "' (2&3) - ACCEPTED").
+      +consensus_label(L2);
+      .println("Majority agrees on '", L2, "' (2&3) - ACCEPTED").
 
 +!tallied(R1, C1, L1, R2, C2, L2, R3, C3, L3)
    <- gl.reject(C1);
