@@ -38,11 +38,11 @@ agent PatternRunner {
     }
 
     rule +!checked(string draftRid) : gl.valid(draftRid) == true {
-        +check_for(draftRid, gl.ask("agent1", "step2", "Check text: " + gl.field(draftRid, "answer")));
+        +check_for(draftRid, gl.ask("agent1", "step2", "Check text: " + gl.field(draftRid, "text")));
     }
 
     rule +!updated(string draftRid) : check_for(draftRid, string checkRid) & gl.valid(checkRid) == true {
-        +updated(gl.ask("agent1", "step3", "Text: " + gl.field(draftRid, "answer") + " Notes: " + gl.field(checkRid, "answer")));
+        +updated(gl.ask("agent1", "step3", "Text: " + gl.field(draftRid, "text") + " Notes: " + gl.field(checkRid, "text")));
     }
 
     rule +!updated(string rid) : updated(rid) {
