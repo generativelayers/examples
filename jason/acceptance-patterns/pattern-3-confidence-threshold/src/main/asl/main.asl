@@ -1,76 +1,59 @@
-// Pipeline: start → !configured → !assessed → !assess_confidence(high|low|medium) → ?assessed
-/**
- * Pattern 3: Confidence Threshold — Jason
- *
- * Extracts the confidence field and makes a tiered decision:
- * high → accept, low → reject + fail, otherwise → escalate.
- */
-
-// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
-//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
-threshold("high", "1.0"). threshold("low", "0.0").
 
-// DOMAIN MODEL
-assessed(Rid) :- confidence_tier(Rid, _).
+assessed(Rid) :- accepted(Rid).
+assessed(Rid) :- rejected(Rid).
+assessed(Rid) :- escalated(Rid).
 
 !start.
 
-// DECOMPOSITION: start only adopts subgoals
 +!start
    <- !configured(true);
       gl.invoke("agent1", "classify", "llm.answer", "ANSWER",
-               "Classify: apple", "label,confidence", Rid);
+               "Classify: apple. Return label and confidence_tier: high, medium, or low.",
+               "label,confidence_tier", Rid);
       !assessed(Rid).
 
-// ACHIEVEMENT: setup (actions only)
 +!configured(true)
    :  setting("model", M) & setting("provider", P)
    <- gl.configure("model", M);
       gl.use_provider(P).
 
-// SERENDIPITY
 +!assessed(Rid)
    :  assessed(Rid)
    <- .println("Already assessed: ", Rid).
 
-// DECOMPOSITION: valid → extract confidence, delegate to tier assessment
 +!assessed(Rid)
    :  gl.valid(Rid, true)
    <- gl.candidate(Rid, Cid);
-      gl.field(Rid, "confidence", Conf);
-      !assess_confidence(Rid, Cid, Conf).
+      gl.field(Rid, "confidence_tier", Tier);
+      !assess_confidence(Rid, Cid, Tier).
 
-// ACHIEVEMENT: invalid output
 +!assessed(Rid)
-   <- .println("Invalid output → REJECTED").
+   <- gl.candidate(Rid, Cid);
+      gl.reject(Cid);
+      +rejected(Rid);
+      .println("Invalid output - REJECTED").
 
-// ACHIEVEMENT: high confidence → accept
-+!assess_confidence(Rid, Cid, Conf)
-   :  threshold("high", Conf)
++!assess_confidence(Rid, Cid, "high")
    <- gl.accept(Cid);
       +accepted(Rid);
       +confidence_tier(Rid, "high");
       ?assessed(Rid);
-      .println("High confidence (", Conf, ") → ACCEPTED").
+      .println("High confidence - ACCEPTED").
 
-// ACHIEVEMENT: low confidence → reject, fail
-+!assess_confidence(Rid, Cid, Conf)
-   :  threshold("low", Conf)
++!assess_confidence(Rid, Cid, "low")
    <- gl.reject(Cid);
+      +rejected(Rid);
       +confidence_tier(Rid, "low");
       ?assessed(Rid);
-      .println("Low confidence (", Conf, ") → REJECTED");
+      .println("Low confidence - REJECTED");
       .fail.
 
-// ACHIEVEMENT: medium confidence → escalate (catch-all valid)
-+!assess_confidence(Rid, Cid, Conf)
-   <- +confidence_tier(Rid, "medium");
++!assess_confidence(Rid, Cid, Tier)
+   <- +escalated(Rid);
+      +confidence_tier(Rid, Tier);
       ?assessed(Rid);
-      .println("Medium confidence → ESCALATING").
+      .println("Confidence tier ", Tier, " - ESCALATING").
 
-// RECOVERY
 -!assessed(Rid)
    <- .println("Assessment FAILED for ", Rid).
