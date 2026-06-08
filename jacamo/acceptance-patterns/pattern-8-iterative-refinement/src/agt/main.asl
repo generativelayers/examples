@@ -1,115 +1,70 @@
-// Pipeline: start → !artifact_ready → !configured → !refined → !critiqued → !improved → !accepted_final → ?refined
-/**
- * Pattern 8: Iterative Refinement — JaCaMo
- *
- * Three-step pipeline: Draft → Critique → Refine → Accept.
- * Each step goes through the governance pipeline.
- * Only the final refined version is accepted.
- */
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
 
-// DOMAIN MODEL
 refined(Rid) :- accepted_final(true).
 
 !start.
 
-// DECOMPOSITION: start only adopts subgoals
 +!start
    <- !artifact_ready;
       !configured(true);
-      ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis", Rid);
-      !refined(Rid).
+      ask("agent1", "step1", "Write short text about photosynthesis", DraftRid);
+      !refined(DraftRid).
 
-// ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready
    <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
       focus(GlId).
 
-// ACHIEVEMENT: setup (actions only)
 +!configured(true)
    :  setting("model", M) & setting("provider", P)
    <- configure("model", M);
       use_provider(P).
 
-// SERENDIPITY
 +!refined(Rid)
    :  refined(Rid)
-   <- .println("Already refined: ", Rid).
+   <- .println("Already done: ", Rid).
 
-// DECOMPOSITION: bind validity → branch
 +!refined(Rid)
    <- valid(Rid, IsValid);
       !refined_branch(Rid, IsValid).
 
-// DECOMPOSITION: valid → critique + improve + accept
-+!refined_branch(Rid, true)
-   <- !critiqued(Rid);
-      !improved(Rid);
-      !accepted_final(Rid);
-      ?refined(Rid).
++!refined_branch(DraftRid, true)
+   <- !checked(DraftRid);
+      !updated(DraftRid);
+      !accepted_final(DraftRid);
+      ?refined(DraftRid).
 
-// ACHIEVEMENT: invalid draft
-+!refined_branch(Rid, false)
-   <- -+pipeline_step("draft_failed");
-      .println("Draft invalid → ABORTED").
++!refined_branch(DraftRid, false)
+   <- .println("First output invalid").
 
-// ACHIEVEMENT: critique
-+!critiqued(DraftRid)
-   <- -+pipeline_step("critiquing");
-      ask("agent1", "critique", "Critique the summary of photosynthesis", CritiqueRid);
-      valid(CritiqueRid, CValid);
-      if (CValid) {
-          +critiqued(CritiqueRid);
-          .println("Draft → critique requested");
-      } else {
-          .println("Critique invalid → ABORTED");
-          .fail;
-      }.
++!checked(DraftRid)
+   <- field(DraftRid, "answer", DraftText);
+      .concat("Check text: ", DraftText, Prompt);
+      ask("agent1", "step2", Prompt, CheckRid);
+      +check_for(DraftRid, CheckRid);
+      +checked(CheckRid).
 
-// SERENDIPITY
-+!critiqued(Rid)
-   :  critiqued(Rid)
-   <- .println("Already critiqued").
++!checked(Rid)
+   :  checked(Rid)
+   <- .println("Already checked").
 
-// ACHIEVEMENT: improve
-+!improved(Rid)
-   :  critiqued(CritiqueRid)
-   <- -+pipeline_step("refining");
-      ask("agent1", "refine", "Improve the summary based on feedback", FinalRid);
-      valid(FinalRid, FValid);
-      if (FValid) {
-          +improved(FinalRid);
-          .println("Critique → refinement requested");
-      } else {
-          .println("Refinement invalid → ABORTED");
-          .fail;
-      }.
++!updated(DraftRid)
+   :  check_for(DraftRid, CheckRid)
+   <- field(DraftRid, "answer", DraftText);
+      field(CheckRid, "answer", CheckText);
+      .concat("Text: ", DraftText, " Notes: ", CheckText, Prompt);
+      ask("agent1", "step3", Prompt, FinalRid);
+      +updated(FinalRid).
 
-// SERENDIPITY
-+!improved(Rid)
-   :  improved(Rid)
-   <- .println("Already improved").
++!updated(Rid)
+   :  updated(Rid)
+   <- .println("Already updated").
 
-// ACHIEVEMENT: accept final
 +!accepted_final(Rid)
-   :  improved(FinalRid)
+   :  updated(FinalRid)
    <- candidate(FinalRid, Cid);
       accept(Cid);
       +accepted_final(true);
-      -+pipeline_step("accepted");
-      .println("Draft → Critique → Refine → ACCEPTED").
+      .println("Final candidate ACCEPTED").
 
-// RECOVERY at each level
 -!refined(Rid)
-   <- -+pipeline_step("failed");
-      .println("Refinement pipeline FAILED for ", Rid).
-
--!critiqued(Rid)
-   <- -+pipeline_step("critique_failed");
-      .println("Critique FAILED → pipeline aborted").
-
--!improved(Rid)
-   <- -+pipeline_step("refine_failed");
-      .println("Refinement FAILED → pipeline aborted").
+   <- .println("Pipeline failed: ", Rid).
