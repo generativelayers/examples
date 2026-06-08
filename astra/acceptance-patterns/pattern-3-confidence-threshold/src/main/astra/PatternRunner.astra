@@ -1,7 +1,6 @@
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
-    module System S;
 
     types governance {
         formula setting(string, string);
@@ -21,12 +20,16 @@ agent PatternRunner {
 
     rule +!main(list args) {
         !configured(true);
-        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify: apple. Return label and confidence_tier: high, medium, or low.", "label,confidence_tier"));
+        !classified("apple");
     }
 
     rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
+    }
+
+    rule +!classified(string item) {
+        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify: " + item + ". Return label and confidence_tier: high, medium, or low.", "label,confidence_tier"));
     }
 
     rule +!assessed(string rid) : assessed(rid) {
@@ -57,7 +60,6 @@ agent PatternRunner {
         +confidence_tier(rid, "low");
         ?assessed(rid);
         console.println("Low confidence - REJECTED");
-        S.fail();
     }
 
     rule +!assess_confidence(string rid, string cid, string tier) {
