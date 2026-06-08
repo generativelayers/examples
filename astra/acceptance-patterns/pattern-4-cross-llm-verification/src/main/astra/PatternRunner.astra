@@ -1,42 +1,46 @@
-// Pipeline: main → !configured → !verified → !cross_checked → !labels_match → ?verified
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula primary_setting(string, string);
+        formula verifier_setting(string, string);
+        formula configured_primary(boolean);
+        formula configured_verifier(boolean);
         formula verified(string);
         formula cross_checked(string);
         formula accepted(string);
+        formula rejected(string);
         formula attempt_count(int);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial primary_setting("model", "gemini-2.5-flash"), primary_setting("provider", "gemini");
+    initial verifier_setting("model", "gpt-oss-120b"), verifier_setting("provider", "cerebras");
     initial attempt_count(0);
 
-    // DOMAIN MODEL
     inference verified(string rid) :- cross_checked(rid);
+    inference verified(string rid) :- rejected(rid);
 
-    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        !configured(true);
+        !configured_primary(true);
         !verified(gl.ask("agent1", "classify", "Classify: apple"));
     }
 
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+    rule +!configured_primary(boolean x) : primary_setting("model", string m) & primary_setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
-    // SERENDIPITY
+    rule +!configured_verifier(boolean x) : verifier_setting("model", string m) & verifier_setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
     rule +!verified(string rid) : verified(rid) {
         console.println("Already verified: " + rid);
     }
 
-    // DECOMPOSITION: valid → cross-check
     rule +!verified(string rid) : gl.valid(rid) == true {
         query(attempt_count(int count));
         -+attempt_count(count + 1);
@@ -44,38 +48,37 @@ agent PatternRunner {
         ?verified(rid);
     }
 
-    // ACHIEVEMENT: invalid
     rule +!verified(string rid) {
-        console.println("Invalid output → ABORTED");
+        gl.reject(gl.candidate(rid));
+        +rejected(rid);
+        console.println("Invalid first output - REJECTED");
     }
 
-    // DECOMPOSITION: cross-check with second LLM
     rule +!cross_checked(string rid) : gl.valid(rid) == true {
         try {
-            !labels_match(rid, gl.field(rid, "label"),
-                gl.field(gl.ask("agent1", "verify",
-                    "Is this correct? apple = " + gl.field(rid, "label")), "label"));
+            !configured_verifier(true);
+            !labels_match(rid, gl.ask("agent1", "verify", "Verify the classification. Return label only. apple = " + gl.field(rid, "label")), gl.field(rid, "label"));
         } recover {
-            console.println("Second LLM call failed");
+            console.println("Second provider call failed");
             S.fail();
         }
     }
 
-    // ACHIEVEMENT: labels match → accept
-    rule +!labels_match(string rid, string l1, string l2) : l1 == l2 {
+    rule +!labels_match(string rid, string vrid, string l1) : gl.field(vrid, "label") == l1 {
         gl.accept(gl.candidate(rid));
+        gl.accept(gl.candidate(vrid));
         +accepted(rid);
         +cross_checked(rid);
-        console.println("Labels match ('" + l1 + "') → ACCEPTED");
+        console.println("Providers agree on '" + l1 + "' - ACCEPTED");
     }
 
-    // ACHIEVEMENT: labels disagree → reject (~= inequality)
-    rule +!labels_match(string rid, string l1, string l2) : l1 ~= l2 {
+    rule +!labels_match(string rid, string vrid, string l1) : gl.field(vrid, "label") ~= l1 {
         gl.reject(gl.candidate(rid));
-        console.println("Labels DISAGREE ('" + l1 + "' ~= '" + l2 + "') → REJECTED");
+        gl.reject(gl.candidate(vrid));
+        +rejected(rid);
+        console.println("Providers disagree: " + l1 + " vs " + gl.field(vrid, "label") + " - REJECTED");
     }
 
-    // RECOVERY
     rule -!verified(string rid) {
         console.println("Verification FAILED for " + rid);
     }
