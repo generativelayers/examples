@@ -16,6 +16,7 @@ setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
 
 // DOMAIN MODEL
 validated(Rid) :- accepted(Rid).
+validated(Rid) :- rejected(Rid).
 
 !start.
 
@@ -57,9 +58,12 @@ validated(Rid) :- accepted(Rid).
       ?validated(Rid);
       .println("ACCEPTED: ", Label).
 
-// ACHIEVEMENT: invalid → reject
+// ACHIEVEMENT: invalid → reject the concrete candidate
 +!validated_branch(Rid, false)
-   <- .println("Invalid output → REJECTED").
+   <- candidate(Rid, Cid);
+      reject(Cid);
+      +rejected(Rid);
+      .println("Invalid output → REJECTED").
 
 // RECOVERY
 -!validated(Rid)
