@@ -8,6 +8,7 @@ agent PatternRunner {
         formula configured(boolean);
         formula inspected(string);
         formula accepted(string);
+        formula rejected(string);
         formula known(string);
     }
 
@@ -16,6 +17,7 @@ agent PatternRunner {
 
     // DOMAIN MODEL
     inference inspected(string rid) :- accepted(rid);
+    inference inspected(string rid) :- rejected(rid);
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
@@ -38,27 +40,31 @@ agent PatternRunner {
         console.println("Already inspected: " + rid);
     }
 
-    // DECOMPOSITION: valid → check content
+    // DECOMPOSITION: valid → check content. Do not mark accepted here.
+    // Acceptance/rejection is performed only by the known_category branches.
     rule +!inspected(string rid) : gl.valid(rid) == true {
-        !known_category(gl.candidate(rid), gl.field(rid, "label"));
-        +accepted(rid);
+        !known_category(rid, gl.candidate(rid), gl.field(rid, "label"));
         ?inspected(rid);
     }
 
-    // ACHIEVEMENT: invalid
+    // ACHIEVEMENT: invalid → reject the concrete candidate
     rule +!inspected(string rid) {
+        gl.reject(gl.candidate(rid));
+        +rejected(rid);
         console.println("Invalid output → REJECTED");
     }
 
     // ACHIEVEMENT: known → accept
-    rule +!known_category(string cid, string label) : known(label) {
+    rule +!known_category(string rid, string cid, string label) : known(label) {
         gl.accept(cid);
+        +accepted(rid);
         console.println("Known category '" + label + "' → ACCEPTED");
     }
 
     // ACHIEVEMENT: unknown → reject
-    rule +!known_category(string cid, string label) : ~known(label) {
+    rule +!known_category(string rid, string cid, string label) : ~known(label) {
         gl.reject(cid);
+        +rejected(rid);
         console.println("Unknown category '" + label + "' → REJECTED");
     }
 
