@@ -21,4 +21,53 @@ agent PatternRunner {
 
     rule +!main(list args) {
         !configured(true);
-        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER",
+        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify: apple. Return label and confidence_tier: high, medium, or low.", "label,confidence_tier"));
+    }
+
+    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    rule +!assessed(string rid) : assessed(rid) {
+        console.println("Already assessed: " + rid);
+    }
+
+    rule +!assessed(string rid) : gl.valid(rid) == true {
+        !assess_confidence(rid, gl.candidate(rid), gl.field(rid, "confidence_tier"));
+    }
+
+    rule +!assessed(string rid) {
+        gl.reject(gl.candidate(rid));
+        +rejected(rid);
+        console.println("Invalid output - REJECTED");
+    }
+
+    rule +!assess_confidence(string rid, string cid, string tier) : tier == "high" {
+        gl.accept(cid);
+        +accepted(rid);
+        +confidence_tier(rid, "high");
+        ?assessed(rid);
+        console.println("High confidence - ACCEPTED");
+    }
+
+    rule +!assess_confidence(string rid, string cid, string tier) : tier == "low" {
+        gl.reject(cid);
+        +rejected(rid);
+        +confidence_tier(rid, "low");
+        ?assessed(rid);
+        console.println("Low confidence - REJECTED");
+        S.fail();
+    }
+
+    rule +!assess_confidence(string rid, string cid, string tier) {
+        +escalated(rid);
+        +confidence_tier(rid, tier);
+        ?assessed(rid);
+        console.println("Confidence tier " + tier + " - ESCALATING");
+    }
+
+    rule -!assessed(string rid) {
+        console.println("Assessment FAILED for " + rid);
+    }
+}
