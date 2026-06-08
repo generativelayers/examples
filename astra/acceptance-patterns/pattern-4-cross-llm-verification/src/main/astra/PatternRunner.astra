@@ -1,7 +1,6 @@
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
-    module System S;
 
     types governance {
         formula primary_setting(string, string);
@@ -12,19 +11,17 @@ agent PatternRunner {
         formula cross_checked(string);
         formula accepted(string);
         formula rejected(string);
-        formula attempt_count(int);
     }
 
     initial primary_setting("model", "gemini-2.5-flash"), primary_setting("provider", "gemini");
     initial verifier_setting("model", "gpt-oss-120b"), verifier_setting("provider", "cerebras");
-    initial attempt_count(0);
 
     inference verified(string rid) :- cross_checked(rid);
     inference verified(string rid) :- rejected(rid);
 
     rule +!main(list args) {
         !configured_primary(true);
-        !verified(gl.ask("agent1", "classify", "Classify: apple"));
+        !classified("apple");
     }
 
     rule +!configured_primary(boolean x) : primary_setting("model", string m) & primary_setting("provider", string p) {
@@ -37,14 +34,16 @@ agent PatternRunner {
         gl.use_provider(p);
     }
 
+    rule +!classified(string item) {
+        !verified(gl.ask("agent1", "classify", "Classify: " + item));
+    }
+
     rule +!verified(string rid) : verified(rid) {
         console.println("Already verified: " + rid);
     }
 
     rule +!verified(string rid) : gl.valid(rid) == true {
-        query(attempt_count(int count));
-        -+attempt_count(count + 1);
-        !cross_checked(rid);
+        !cross_checked(rid, gl.field(rid, "label"));
         ?verified(rid);
     }
 
@@ -54,36 +53,31 @@ agent PatternRunner {
         console.println("Invalid first output - REJECTED");
     }
 
-    rule +!cross_checked(string rid) : gl.valid(rid) == true {
-        try {
-            !configured_verifier(true);
-            !labels_match(rid, gl.ask("agent1", "verify", "Verify the classification. Return label only. apple = " + gl.field(rid, "label")), gl.field(rid, "label"));
-        } recover {
-            console.println("Second provider call failed");
-            S.fail();
-        }
+    rule +!cross_checked(string rid, string firstLabel) {
+        !configured_verifier(true);
+        !labels_match(rid, gl.ask("agent1", "verify", "Verify classification. Return label only. apple = " + firstLabel), firstLabel);
     }
 
-    rule +!labels_match(string rid, string vrid, string l1) : gl.field(vrid, "label") == l1 {
+    rule +!labels_match(string rid, string vrid, string firstLabel) : gl.field(vrid, "label") == firstLabel {
         gl.accept(gl.candidate(rid));
         gl.accept(gl.candidate(vrid));
         +accepted(rid);
         +cross_checked(rid);
-        console.println("Providers agree on '" + l1 + "' - ACCEPTED");
+        console.println("Providers agree on '" + firstLabel + "' - ACCEPTED");
     }
 
-    rule +!labels_match(string rid, string vrid, string l1) : gl.field(vrid, "label") ~= l1 {
+    rule +!labels_match(string rid, string vrid, string firstLabel) {
         gl.reject(gl.candidate(rid));
         gl.reject(gl.candidate(vrid));
         +rejected(rid);
-        console.println("Providers disagree: " + l1 + " vs " + gl.field(vrid, "label") + " - REJECTED");
+        console.println("Providers disagree - REJECTED");
     }
 
     rule -!verified(string rid) {
         console.println("Verification FAILED for " + rid);
     }
 
-    rule -!cross_checked(string rid) {
+    rule -!cross_checked(string rid, string firstLabel) {
         console.println("Cross-check FAILED for " + rid);
     }
 }
