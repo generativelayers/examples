@@ -1,4 +1,4 @@
-// Pipeline: main → !configured → +llm_result → !validated → ?validated
+// Pipeline: main → !configured → !validated → ?validated
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
@@ -6,37 +6,31 @@ agent PatternRunner {
     types governance {
         formula setting(string, string);
         formula configured(boolean);
-        formula llm_result(string);
         formula validated(string);
         formula accepted(string);
         formula rejected(string);
         formula classified(string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial setting("model", "gemini-2.5-flash"), setting("provider", "gemini");
 
-    // DOMAIN MODEL
     inference validated(string rid) :- accepted(rid);
     inference validated(string rid) :- rejected(rid);
 
-    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         !configured(true);
-        !validated(gl.ask("agent1", "classify", "Classify: apple", "convo1"));
+        !validated(gl.ask("agent1", "classify", "Classify: apple"));
     }
 
-    // ACHIEVEMENT: setup (actions only)
     rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
-    // SERENDIPITY
     rule +!validated(string rid) : validated(rid) {
         console.println("Already validated: " + rid);
     }
 
-    // ACHIEVEMENT: valid → accept, verify
     rule +!validated(string rid) : gl.valid(rid) == true {
         gl.accept(gl.candidate(rid));
         +accepted(rid);
@@ -45,14 +39,12 @@ agent PatternRunner {
         console.println("ACCEPTED: " + gl.field(rid, "label"));
     }
 
-    // ACHIEVEMENT: invalid → reject the concrete candidate
     rule +!validated(string rid) {
         gl.reject(gl.candidate(rid));
         +rejected(rid);
         console.println("Invalid output → REJECTED");
     }
 
-    // RECOVERY
     rule -!validated(string rid) {
         console.println("Validation FAILED for " + rid);
     }
