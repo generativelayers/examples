@@ -4,6 +4,7 @@ agent PatternRunner {
 
     types governance {
         formula setting(string, string);
+        formula configured(boolean);
         formula confirmed(string);
         formula rejected(string);
         formula adopted_new(string);
