@@ -26,11 +26,13 @@ refined(Rid) :- accepted_final(true).
       ?refined(DraftRid).
 
 +!refined(DraftRid)
-   <- .println("First output invalid").
+   <- gl.candidate(DraftRid, DraftCid);
+      gl.reject(DraftCid);
+      .println("First output invalid - REJECTED").
 
 +!checked(DraftRid)
    :  gl.valid(DraftRid, true)
-   <- gl.field(DraftRid, "answer", DraftText);
+   <- gl.field(DraftRid, "text", DraftText);
       .concat("Check text: ", DraftText, Prompt);
       gl.ask("agent1", "step2", Prompt, CheckRid);
       +check_for(DraftRid, CheckRid);
@@ -42,8 +44,8 @@ refined(Rid) :- accepted_final(true).
 
 +!updated(DraftRid)
    :  check_for(DraftRid, CheckRid) & gl.valid(CheckRid, true)
-   <- gl.field(DraftRid, "answer", DraftText);
-      gl.field(CheckRid, "answer", CheckText);
+   <- gl.field(DraftRid, "text", DraftText);
+      gl.field(CheckRid, "text", CheckText);
       .concat("Text: ", DraftText, " Notes: ", CheckText, Prompt);
       gl.ask("agent1", "step3", Prompt, FinalRid);
       +updated(FinalRid).
