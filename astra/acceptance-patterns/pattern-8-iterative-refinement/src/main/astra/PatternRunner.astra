@@ -1,99 +1,69 @@
-// Pipeline: main → !configured → !refined → !critiqued → !improved → !accepted_final → ?refined
 agent PatternRunner {
     module gl.adapter.astra.AstraAdapter gl;
     module Console console;
 
     types governance {
         formula setting(string, string);
-        formula configured(boolean);
         formula refined(string);
-        formula critiqued(string);
-        formula improved(string);
+        formula checked(string);
+        formula check_for(string, string);
+        formula updated(string);
         formula accepted_final(boolean);
-        formula pipeline_step(string);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // DOMAIN MODEL
     inference refined(string rid) :- accepted_final(true);
 
-    // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        !configured(true);
-        !refined(gl.ask("agent1", "draft", "Write a 3-sentence summary of photosynthesis"));
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
+        !refined(gl.ask("agent1", "step1", "Write short text about photosynthesis"));
     }
 
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
-    }
-
-    // SERENDIPITY
     rule +!refined(string rid) : refined(rid) {
-        console.println("Already refined: " + rid);
+        console.println("Already done: " + rid);
     }
 
-    // DECOMPOSITION: refine = critique + improve + accept
-    rule +!refined(string rid) : gl.valid(rid) == true {
-        !critiqued(rid);
-        !improved(rid);
-        !accepted_final(rid);
-        ?refined(rid);
+    rule +!refined(string draftRid) : gl.valid(draftRid) == true {
+        !checked(draftRid);
+        !updated(draftRid);
+        !accepted_final(draftRid);
+        ?refined(draftRid);
     }
 
-    // ACHIEVEMENT: invalid draft
-    rule +!refined(string rid) {
-        -+pipeline_step("draft_failed");
-        console.println("Draft invalid → ABORTED");
+    rule +!refined(string draftRid) {
+        console.println("First output invalid");
     }
 
-    // ACHIEVEMENT: critique
-    rule +!critiqued(string draftRid) : gl.valid(draftRid) == true {
-        -+pipeline_step("critiquing");
-        +critiqued(gl.ask("agent1", "critique", "Critique the summary of photosynthesis"));
-        console.println("Draft → critique requested");
+    rule +!checked(string draftRid) : gl.valid(draftRid) == true {
+        string draftText = gl.field(draftRid, "answer");
+        string checkRid = gl.ask("agent1", "step2", "Check text: " + draftText);
+        +check_for(draftRid, checkRid);
+        +checked(checkRid);
     }
 
-    // SERENDIPITY
-    rule +!critiqued(string rid) : critiqued(rid) {
-        console.println("Already critiqued");
+    rule +!checked(string rid) : checked(rid) {
+        console.println("Already checked");
     }
 
-    // ACHIEVEMENT: improve
-    rule +!improved(string rid) : critiqued(string critiqueRid) & gl.valid(critiqueRid) == true {
-        -+pipeline_step("refining");
-        +improved(gl.ask("agent1", "refine", "Improve the summary based on feedback"));
-        console.println("Critique → refinement requested");
+    rule +!updated(string draftRid) : check_for(draftRid, string checkRid) & gl.valid(checkRid) == true {
+        string draftText = gl.field(draftRid, "answer");
+        string checkText = gl.field(checkRid, "answer");
+        +updated(gl.ask("agent1", "step3", "Text: " + draftText + " Notes: " + checkText));
     }
 
-    // SERENDIPITY
-    rule +!improved(string rid) : improved(rid) {
-        console.println("Already improved");
+    rule +!updated(string rid) : updated(rid) {
+        console.println("Already updated");
     }
 
-    // ACHIEVEMENT: accept final
-    rule +!accepted_final(string rid) : improved(string finalRid) & gl.valid(finalRid) == true {
+    rule +!accepted_final(string rid) : updated(string finalRid) & gl.valid(finalRid) == true {
         gl.accept(gl.candidate(finalRid));
         +accepted_final(true);
-        -+pipeline_step("accepted");
-        console.println("Draft → Critique → Refine → ACCEPTED");
+        console.println("Final candidate ACCEPTED");
     }
 
-    // RECOVERY at each level
     rule -!refined(string rid) {
-        -+pipeline_step("failed");
-        console.println("Refinement pipeline FAILED for " + rid);
-    }
-
-    rule -!critiqued(string rid) {
-        -+pipeline_step("critique_failed");
-        console.println("Critique FAILED → pipeline aborted");
-    }
-
-    rule -!improved(string rid) {
-        -+pipeline_step("refine_failed");
-        console.println("Refinement FAILED → pipeline aborted");
+        console.println("Pipeline failed: " + rid);
     }
 }
