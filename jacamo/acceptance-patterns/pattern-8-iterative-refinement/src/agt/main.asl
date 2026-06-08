@@ -39,7 +39,7 @@ refined(Rid) :- accepted_final(true).
       .println("First output invalid - REJECTED").
 
 +!checked(DraftRid)
-   <- field(DraftRid, "answer", DraftText);
+   <- field(DraftRid, "text", DraftText);
       .concat("Check text: ", DraftText, Prompt);
       ask("agent1", "step2", Prompt, CheckRid);
       valid(CheckRid, CheckValid);
@@ -60,8 +60,8 @@ refined(Rid) :- accepted_final(true).
 
 +!updated(DraftRid)
    :  check_for(DraftRid, CheckRid)
-   <- field(DraftRid, "answer", DraftText);
-      field(CheckRid, "answer", CheckText);
+   <- field(DraftRid, "text", DraftText);
+      field(CheckRid, "text", CheckText);
       .concat("Text: ", DraftText, " Notes: ", CheckText, Prompt);
       ask("agent1", "step3", Prompt, FinalRid);
       valid(FinalRid, FinalValid);
