@@ -33,24 +33,16 @@ agent PatternRunner {
     }
 
     rule +!refined(string draftRid) {
-        console.println("First output invalid");
+        gl.reject(gl.candidate(draftRid));
+        console.println("First output invalid - REJECTED");
     }
 
     rule +!checked(string draftRid) : gl.valid(draftRid) == true {
-        string draftText = gl.field(draftRid, "answer");
-        string checkRid = gl.ask("agent1", "step2", "Check text: " + draftText);
-        +check_for(draftRid, checkRid);
-        +checked(checkRid);
-    }
-
-    rule +!checked(string rid) : checked(rid) {
-        console.println("Already checked");
+        +check_for(draftRid, gl.ask("agent1", "step2", "Check text: " + gl.field(draftRid, "answer")));
     }
 
     rule +!updated(string draftRid) : check_for(draftRid, string checkRid) & gl.valid(checkRid) == true {
-        string draftText = gl.field(draftRid, "answer");
-        string checkText = gl.field(checkRid, "answer");
-        +updated(gl.ask("agent1", "step3", "Text: " + draftText + " Notes: " + checkText));
+        +updated(gl.ask("agent1", "step3", "Text: " + gl.field(draftRid, "answer") + " Notes: " + gl.field(checkRid, "answer")));
     }
 
     rule +!updated(string rid) : updated(rid) {
