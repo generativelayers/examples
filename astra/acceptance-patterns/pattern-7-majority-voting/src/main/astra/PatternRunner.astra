@@ -9,3 +9,5 @@ agent PatternRunner {
     }
 
     inference consensus_reached(true) :- consensus_label(string _);
+
+    rule +!main(list
