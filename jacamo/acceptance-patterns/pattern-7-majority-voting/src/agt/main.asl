@@ -16,7 +16,7 @@ consensus_reached(true) :- consensus_label(_).
       !consensus_reached(true).
 
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 +!vote_cast(Id)

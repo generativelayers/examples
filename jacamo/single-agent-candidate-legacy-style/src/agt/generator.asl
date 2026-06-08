@@ -21,7 +21,7 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 // ACHIEVEMENT: display banner (actions only)

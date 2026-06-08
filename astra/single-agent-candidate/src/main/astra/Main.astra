@@ -1,6 +1,6 @@
 // Pipeline: main → !configured → !classified(food) → !deliberated → accept|reject → ?classified
 agent Main {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
 
     types governance {

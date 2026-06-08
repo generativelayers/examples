@@ -6,7 +6,7 @@
  * as shown on https://www.generativelayers.com/providers.html
  */
 agent Main {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
 
     types governance {

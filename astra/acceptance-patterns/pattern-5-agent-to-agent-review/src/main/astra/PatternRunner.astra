@@ -1,6 +1,6 @@
 // Pipeline: main → !configured → !reviewed → send(reviewer) → wait → ?reviewed
 agent PatternRunner {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
     module System S;
 

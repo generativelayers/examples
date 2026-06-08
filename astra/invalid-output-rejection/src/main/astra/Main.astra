@@ -1,6 +1,6 @@
 // Pipeline: main → !configured → !try_classify(strict) → !try_classify(relaxed) → !deliberated → accept|reject
 agent Main {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
 
     types governance {

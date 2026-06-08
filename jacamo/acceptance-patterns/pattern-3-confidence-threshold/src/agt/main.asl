@@ -13,7 +13,7 @@ assessed(Rid) :- escalated(Rid).
       !assessed(Rid).
 
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 +!configured(true)

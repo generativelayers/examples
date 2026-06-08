@@ -11,7 +11,7 @@ refined(Rid) :- accepted_final(true).
       !refined(DraftRid).
 
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 +!configured(true)

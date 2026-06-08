@@ -14,7 +14,7 @@ consistent(Rid) :- adopted_new(Rid).
       !consistent(Rid).
 
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 +!configured(true)

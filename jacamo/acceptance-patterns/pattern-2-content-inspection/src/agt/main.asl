@@ -27,7 +27,7 @@ inspected(Rid) :- rejected(Rid).
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready
-   <- makeArtifact("gl", "gl.adapter.jacamo.JaCaMoAdapter", [], GlId);
+   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 // ACHIEVEMENT: setup (actions only)

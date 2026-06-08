@@ -1,6 +1,6 @@
 // Pipeline: main → !configured → !validated → ?validated
 agent PatternRunner {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
 
     types governance {

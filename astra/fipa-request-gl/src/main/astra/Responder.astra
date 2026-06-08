@@ -1,6 +1,6 @@
 // Pipeline: @message(request) → !configured → !generated → !deliberated → send(inform) → ?generation_complete
 agent Responder extends GLOntology {
-    module gl.adapter.astra.AstraAdapter gl;
+    module gl.astra.GL gl;
     module Console console;
 
     types responder_types {
