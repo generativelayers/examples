@@ -1,41 +1,31 @@
-// Pipeline: start → !configured → !verified → !cross_checked → !labels_match → ?verified
-/**
- * Pattern 4: Cross-LLM Verification — Jason
- *
- * Asks a second LLM to verify the first LLM's output.
- * Accepts only if both labels match.
- */
-
-// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
-//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+setting("primary_provider", "gemini"). setting("primary_model", "gemini-2.5-flash").
+setting("verifier_provider", "cerebras"). setting("verifier_model", "gpt-oss-120b").
 attempt_count(0).
 
-// DOMAIN MODEL
 verified(Rid) :- cross_checked(Rid).
+verified(Rid) :- rejected(Rid).
 
 !start.
 
-// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- !configured(true);
+   <- !configured_primary;
       gl.ask("agent1", "classify", "Classify: apple", Rid);
       !verified(Rid).
 
-// ACHIEVEMENT: setup (actions only)
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
++!configured_primary
+   :  setting("primary_model", M) & setting("primary_provider", P)
    <- gl.configure("model", M);
       gl.use_provider(P).
 
-// SERENDIPITY
++!configured_verifier
+   :  setting("verifier_model", M) & setting("verifier_provider", P)
+   <- gl.configure("model", M);
+      gl.use_provider(P).
+
 +!verified(Rid)
    :  verified(Rid)
    <- .println("Already verified: ", Rid).
 
-// DECOMPOSITION: valid → cross-check
 +!verified(Rid)
    :  gl.valid(Rid, true)
    <- ?attempt_count(Count);
@@ -43,36 +33,40 @@ verified(Rid) :- cross_checked(Rid).
       !cross_checked(Rid);
       ?verified(Rid).
 
-// ACHIEVEMENT: invalid
 +!verified(Rid)
-   <- .println("Invalid output → ABORTED").
+   <- gl.candidate(Rid, Cid);
+      gl.reject(Cid);
+      +rejected(Rid);
+      .println("Invalid first output - REJECTED").
 
-// ACHIEVEMENT: cross-check with second LLM
 +!cross_checked(Rid)
    :  gl.valid(Rid, true)
    <- gl.field(Rid, "label", L1);
-      .concat("Is this correct? apple = ", L1, Prompt);
+      !configured_verifier;
+      .concat("Verify the classification. Return label only. apple = ", L1, Prompt);
       gl.ask("agent1", "verify", Prompt, Vrid);
       gl.field(Vrid, "label", L2);
-      !labels_match(Rid, L1, L2).
+      !labels_match(Rid, Vrid, L1, L2).
 
-// ACHIEVEMENT: labels match → accept
-+!labels_match(Rid, L1, L2)
++!labels_match(Rid, Vrid, L1, L2)
    :  L1 == L2
-   <- gl.candidate(Rid, Cid);
-      gl.accept(Cid);
+   <- gl.candidate(Rid, Cid1);
+      gl.candidate(Vrid, Cid2);
+      gl.accept(Cid1);
+      gl.accept(Cid2);
       +accepted(Rid);
       +cross_checked(Rid);
-      .println("Labels match ('", L1, "') → ACCEPTED").
+      .println("Providers agree on '", L1, "' - ACCEPTED").
 
-// ACHIEVEMENT: labels disagree → reject
-+!labels_match(Rid, L1, L2)
++!labels_match(Rid, Vrid, L1, L2)
    :  L1 \== L2
-   <- gl.candidate(Rid, Cid);
-      gl.reject(Cid);
-      .println("Labels DISAGREE ('", L1, "' \\== '", L2, "') → REJECTED").
+   <- gl.candidate(Rid, Cid1);
+      gl.candidate(Vrid, Cid2);
+      gl.reject(Cid1);
+      gl.reject(Cid2);
+      +rejected(Rid);
+      .println("Providers disagree: ", L1, " vs ", L2, " - REJECTED").
 
-// RECOVERY
 -!verified(Rid)
    <- .println("Verification FAILED for ", Rid).
 
