@@ -3,11 +3,62 @@ agent PatternRunner {
     module Console console;
 
     types governance {
-        formula vote(int, string, string);
+        formula vote(int, string);
         formula consensus_label(string);
         formula consensus_reached(boolean);
     }
 
     inference consensus_reached(true) :- consensus_label(string _);
 
-    rule +!main(list
+    rule +!main(list args) {
+        gl.configure("model", "gemini-2.5-flash");
+        gl.use_provider("gemini");
+        !vote_cast(1);
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
+        !vote_cast(2);
+        gl.configure("model", "gemini-2.5-flash");
+        gl.use_provider("gemini");
+        !vote_cast(3);
+        !consensus_reached(true);
+    }
+
+    rule +!vote_cast(int id) {
+        +vote(id, gl.ask("agent1", "classify", "Classify: tomato"));
+    }
+
+    rule +!consensus_reached(boolean x) : consensus_reached(true) {
+        query(consensus_label(string winner));
+        console.println("Already have consensus: " + winner);
+    }
+
+    rule +!consensus_reached(boolean x) : vote(1, string r1) & vote(2, string r2) & vote(3, string r3) {
+        !tallied(r1, gl.field(r1, "label"), r2, gl.field(r2, "label"), r3, gl.field(r3, "label"));
+        ?consensus_reached(true);
+    }
+
+    rule +!tallied(string r1, string l, string r2, string l, string r3, string l3) {
+        gl.accept(gl.candidate(r1));
+        gl.accept(gl.candidate(r2));
+        +consensus_label(l);
+        console.println("Majority 1 and 2 - ACCEPTED");
+    }
+
+    rule +!tallied(string r1, string l, string r2, string l2, string r3, string l) {
+        gl.accept(gl.candidate(r1));
+        gl.accept(gl.candidate(r3));
+        +consensus_label(l);
+        console.println("Majority 1 and 3 - ACCEPTED");
+    }
+
+    rule +!tallied(string r1, string l1, string r2, string l, string r3, string l) {
+        gl.accept(gl.candidate(r2));
+        gl.accept(gl.candidate(r3));
+        +consensus_label(l);
+        console.println("Majority 2 and 3 - ACCEPTED");
+    }
+
+    rule +!tallied(string r1, string l1, string r2, string l2, string r3, string l3) {
+        console.println("No consensus - NO DECISION");
+    }
+}
