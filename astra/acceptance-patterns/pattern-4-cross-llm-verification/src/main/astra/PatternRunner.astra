@@ -1,3 +1,16 @@
+/**
+ * Pattern 4: Cross-LLM Verification
+ *
+ * Two LLMs independently classify the same input.
+ * If their labels agree, the candidate is accepted.
+ *
+ * Principles used:
+ *   - Deliberation Plans  (main → goal adoption)
+ *   - Means-End Reasoning (how to achieve each goal)
+ *   - Serendipity Plans   (goal already satisfied)
+ *   - Recovery Plans      (handle failures)
+ *   - Domain Modelling    (inference rules)
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
@@ -5,79 +18,100 @@ agent PatternRunner {
     types governance {
         formula primary_setting(string, string);
         formula verifier_setting(string, string);
-        formula configured_primary(boolean);
-        formula configured_verifier(boolean);
         formula verified(string);
-        formula cross_checked(string);
-        formula accepted(string);
         formula rejected(string);
     }
 
-    initial primary_setting("model", "gemini-2.5-flash"), primary_setting("provider", "gemini");
-    initial verifier_setting("model", "gpt-oss-120b"), verifier_setting("provider", "cerebras");
+    initial primary_setting("model", "gpt-oss-120b"),
+            primary_setting("provider", "cerebras");
+    initial verifier_setting("model", "gpt-oss-120b"),
+            verifier_setting("provider", "cerebras");
 
-    inference verified(string rid) :- cross_checked(rid);
-    inference verified(string rid) :- rejected(rid);
-
+    // ── DECOMPOSITION: main → configure → classify ──
     rule +!main(list args) {
         !configured_primary(true);
         !classified("apple");
     }
 
-    rule +!configured_primary(boolean x) : primary_setting("model", string m) & primary_setting("provider", string p) {
+    // ── ACHIEVEMENT: configure primary provider ──
+    rule +!configured_primary(boolean x) :
+            primary_setting("model", string m) &
+            primary_setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
-    rule +!configured_verifier(boolean x) : verifier_setting("model", string m) & verifier_setting("provider", string p) {
+    // ── ACHIEVEMENT: configure verifier provider ──
+    rule +!configured_verifier(boolean x) :
+            verifier_setting("model", string m) &
+            verifier_setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
+    // ── DECOMPOSITION: classify → verify ──
     rule +!classified(string item) {
-        !verified(gl.ask("agent1", "classify", "Classify: " + item));
+        string rid = gl.ask("agent1", "classify", "Classify: " + item);
+        !verified(rid);
     }
 
+    // ── SERENDIPITY: already verified ──
     rule +!verified(string rid) : verified(rid) {
         console.println("Already verified: " + rid);
     }
 
-    rule +!verified(string rid) : gl.valid(rid) == true {
-        !cross_checked(rid, gl.field(rid, "label"));
-        ?verified(rid);
-    }
-
+    // ── MEANS-END: check output and cross-verify ──
     rule +!verified(string rid) {
-        gl.reject(gl.candidate(rid));
-        +rejected(rid);
-        console.println("Invalid first output - REJECTED");
+        boolean isValid = gl.valid(rid);
+        if (isValid) {
+            string primaryLabel = gl.field(rid, "label");
+            string primaryCid = gl.candidate(rid);
+            console.println("[Primary] label = " + primaryLabel);
+            !cross_checked(rid, primaryLabel, primaryCid);
+            +verified(rid);
+        } else {
+            gl.reject(gl.candidate(rid));
+            +rejected(rid);
+            console.println("Invalid primary output → REJECTED");
+        }
     }
 
-    rule +!cross_checked(string rid, string firstLabel) {
+    // ── DECOMPOSITION: cross-check with verifier ──
+    rule +!cross_checked(string rid, string primaryLabel, string primaryCid) {
         !configured_verifier(true);
-        !labels_match(rid, gl.ask("agent1", "verify", "Verify classification. Return label only. apple = " + firstLabel), firstLabel);
+        string vrid = gl.ask("agent1", "verify",
+            "Classify this item and return only a label field: apple");
+        boolean vValid = gl.valid(vrid);
+        if (vValid) {
+            string verifierLabel = gl.field(vrid, "label");
+            if (verifierLabel == primaryLabel) {
+                string verifierCid = gl.candidate(vrid);
+                gl.accept(primaryCid);
+                gl.accept(verifierCid);
+                console.println("[Verifier] label = " + verifierLabel + " → MATCH → ACCEPTED");
+            } else {
+                gl.reject(primaryCid);
+                gl.reject(gl.candidate(vrid));
+                +rejected(rid);
+                console.println("[Verifier] label = " + verifierLabel + " ≠ " + primaryLabel + " → REJECTED");
+            }
+        } else {
+            gl.reject(primaryCid);
+            +rejected(rid);
+            console.println("Verifier output invalid → REJECTED");
+        }
     }
 
-    rule +!labels_match(string rid, string vrid, string firstLabel) : gl.field(vrid, "label") == firstLabel {
-        gl.accept(gl.candidate(rid));
-        gl.accept(gl.candidate(vrid));
-        +accepted(rid);
-        +cross_checked(rid);
-        console.println("Providers agree on '" + firstLabel + "' - ACCEPTED");
-    }
-
-    rule +!labels_match(string rid, string vrid, string firstLabel) {
-        gl.reject(gl.candidate(rid));
-        gl.reject(gl.candidate(vrid));
-        +rejected(rid);
-        console.println("Providers disagree - REJECTED");
-    }
-
+    // ── RECOVERY ──
     rule -!verified(string rid) {
         console.println("Verification FAILED for " + rid);
     }
 
-    rule -!cross_checked(string rid, string firstLabel) {
+    rule -!cross_checked(string rid, string label, string cid) {
         console.println("Cross-check FAILED for " + rid);
+    }
+
+    rule -!classified(string item) {
+        console.println("Classification FAILED for " + item);
     }
 }

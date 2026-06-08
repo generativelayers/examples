@@ -1,3 +1,16 @@
+/**
+ * Pattern 8: Iterative Refinement
+ *
+ * Three-stage pipeline: draft → check → revise.
+ * Each stage is a separate LLM call; the final output is accepted.
+ *
+ * Principles used:
+ *   - Decomposition Plans (pipeline as goal decomposition)
+ *   - Means-End Reasoning (how to achieve each stage)
+ *   - Serendipity Plans   (goal already satisfied)
+ *   - Recovery Plans      (handle failures)
+ *   - Domain Modelling    (inference rules)
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
@@ -5,57 +18,57 @@ agent PatternRunner {
     types governance {
         formula setting(string, string);
         formula refined(string);
-        formula checked(string);
-        formula check_for(string, string);
-        formula updated(string);
-        formula accepted_final(boolean);
+        formula draft_text(string, string);
+        formula check_notes(string, string);
     }
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    inference refined(string rid) :- accepted_final(true);
-
+    // ── DECOMPOSITION: main → configure → refine ──
     rule +!main(list args) {
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-        !refined(gl.ask("agent1", "step1", "Write short text about photosynthesis"));
+        !configured(true);
+        !refined(gl.ask("agent1", "step1",
+            "Write a short paragraph about photosynthesis."));
     }
 
+    // ── ACHIEVEMENT: configure provider ──
+    rule +!configured(boolean x) :
+            setting("model", string m) & setting("provider", string p) {
+        gl.configure("model", m);
+        gl.use_provider(p);
+    }
+
+    // ── SERENDIPITY: already refined ──
     rule +!refined(string rid) : refined(rid) {
-        console.println("Already done: " + rid);
+        console.println("Already refined: " + rid);
     }
 
-    rule +!refined(string draftRid) : gl.valid(draftRid) == true {
-        !checked(draftRid);
-        !updated(draftRid);
-        !accepted_final(draftRid);
-        ?refined(draftRid);
-    }
-
+    // ── MEANS-END: draft → check → revise → accept ──
     rule +!refined(string draftRid) {
-        gl.reject(gl.candidate(draftRid));
-        console.println("First output invalid - REJECTED");
+        string draftText = gl.field(draftRid, "answer");
+        console.println("[Draft] " + draftText);
+
+        // Check
+        string checkRid = gl.ask("agent1", "step2",
+            "Review this text and suggest improvements: " + draftText);
+        string notes = gl.field(checkRid, "answer");
+        console.println("[Check] " + notes);
+
+        // Revise
+        string finalRid = gl.ask("agent1", "step3",
+            "Revise this text: " + draftText + " Based on: " + notes);
+        string revised = gl.field(finalRid, "answer");
+        console.println("[Revised] " + revised);
+
+        // Accept the final candidate
+        string cid = gl.candidate(finalRid);
+        gl.accept(cid);
+        +refined(draftRid);
+        console.println("Final candidate → ACCEPTED");
     }
 
-    rule +!checked(string draftRid) : gl.valid(draftRid) == true {
-        +check_for(draftRid, gl.ask("agent1", "step2", "Check text: " + gl.field(draftRid, "text")));
-    }
-
-    rule +!updated(string draftRid) : check_for(draftRid, string checkRid) & gl.valid(checkRid) == true {
-        +updated(gl.ask("agent1", "step3", "Text: " + gl.field(draftRid, "text") + " Notes: " + gl.field(checkRid, "text")));
-    }
-
-    rule +!updated(string rid) : updated(rid) {
-        console.println("Already updated");
-    }
-
-    rule +!accepted_final(string rid) : updated(string finalRid) & gl.valid(finalRid) == true {
-        gl.accept(gl.candidate(finalRid));
-        +accepted_final(true);
-        console.println("Final candidate ACCEPTED");
-    }
-
+    // ── RECOVERY ──
     rule -!refined(string rid) {
-        console.println("Pipeline failed: " + rid);
+        console.println("Pipeline FAILED for " + rid);
     }
 }
