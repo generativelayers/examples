@@ -9,6 +9,7 @@ agent PatternRunner {
         formula llm_result(string);
         formula validated(string);
         formula accepted(string);
+        formula rejected(string);
         formula classified(string);
     }
 
@@ -16,6 +17,7 @@ agent PatternRunner {
 
     // DOMAIN MODEL
     inference validated(string rid) :- accepted(rid);
+    inference validated(string rid) :- rejected(rid);
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
@@ -43,8 +45,10 @@ agent PatternRunner {
         console.println("ACCEPTED: " + gl.field(rid, "label"));
     }
 
-    // ACHIEVEMENT: invalid → reject
+    // ACHIEVEMENT: invalid → reject the concrete candidate
     rule +!validated(string rid) {
+        gl.reject(gl.candidate(rid));
+        +rejected(rid);
         console.println("Invalid output → REJECTED");
     }
 
