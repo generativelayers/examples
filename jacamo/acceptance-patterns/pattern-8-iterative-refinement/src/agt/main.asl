@@ -34,14 +34,25 @@ refined(Rid) :- accepted_final(true).
       ?refined(DraftRid).
 
 +!refined_branch(DraftRid, false)
-   <- .println("First output invalid").
+   <- candidate(DraftRid, DraftCid);
+      reject(DraftCid);
+      .println("First output invalid - REJECTED").
 
 +!checked(DraftRid)
    <- field(DraftRid, "answer", DraftText);
       .concat("Check text: ", DraftText, Prompt);
       ask("agent1", "step2", Prompt, CheckRid);
-      +check_for(DraftRid, CheckRid);
+      valid(CheckRid, CheckValid);
+      !checked_branch(DraftRid, CheckRid, CheckValid).
+
++!checked_branch(DraftRid, CheckRid, true)
+   <- +check_for(DraftRid, CheckRid);
       +checked(CheckRid).
+
++!checked_branch(DraftRid, CheckRid, false)
+   <- candidate(CheckRid, CheckCid);
+      reject(CheckCid);
+      .println("Check output invalid - REJECTED").
 
 +!checked(Rid)
    :  checked(Rid)
@@ -53,7 +64,16 @@ refined(Rid) :- accepted_final(true).
       field(CheckRid, "answer", CheckText);
       .concat("Text: ", DraftText, " Notes: ", CheckText, Prompt);
       ask("agent1", "step3", Prompt, FinalRid);
-      +updated(FinalRid).
+      valid(FinalRid, FinalValid);
+      !updated_branch(FinalRid, FinalValid).
+
++!updated_branch(FinalRid, true)
+   <- +updated(FinalRid).
+
++!updated_branch(FinalRid, false)
+   <- candidate(FinalRid, FinalCid);
+      reject(FinalCid);
+      .println("Final output invalid - REJECTED").
 
 +!updated(Rid)
    :  updated(Rid)
