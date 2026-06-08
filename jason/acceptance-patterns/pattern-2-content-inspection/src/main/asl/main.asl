@@ -1,4 +1,4 @@
-// Pipeline: start → !configured → !inspected → !known_category → ?inspected
+// Pipeline: start → !configured → !inspected → !known_category
 /**
  * Pattern 2: Content Inspection — Jason
  *
@@ -15,6 +15,7 @@ known("fruit"). known("vegetable"). known("grain").
 
 // DOMAIN MODEL
 inspected(Rid) :- accepted(Rid).
+inspected(Rid) :- rejected(Rid).
 
 !start.
 
@@ -37,29 +38,34 @@ inspected(Rid) :- accepted(Rid).
    :  inspected(Rid)
    <- .println("Already inspected: ", Rid).
 
-// DECOMPOSITION: valid → check content
+// DECOMPOSITION: valid → check content. Do not mark accepted here.
+// Acceptance/rejection is performed only by the known_category branches.
 +!inspected(Rid)
    :  gl.valid(Rid, true)
    <- gl.candidate(Rid, Cid);
       gl.field(Rid, "label", Label);
-      !known_category(Cid, Label);
-      +accepted(Rid);
+      !known_category(Rid, Cid, Label);
       ?inspected(Rid).
 
-// ACHIEVEMENT: invalid
+// ACHIEVEMENT: invalid → reject the concrete candidate
 +!inspected(Rid)
-   <- .println("Invalid output → REJECTED").
+   <- gl.candidate(Rid, Cid);
+      gl.reject(Cid);
+      +rejected(Rid);
+      .println("Invalid output → REJECTED").
 
 // ACHIEVEMENT: known → accept
-+!known_category(Cid, Label)
++!known_category(Rid, Cid, Label)
    :  known(Label)
    <- gl.accept(Cid);
+      +accepted(Rid);
       .println("Known category '", Label, "' → ACCEPTED").
 
 // ACHIEVEMENT: unknown → reject
-+!known_category(Cid, Label)
++!known_category(Rid, Cid, Label)
    :  not known(Label)
    <- gl.reject(Cid);
+      +rejected(Rid);
       .println("Unknown category '", Label, "' → REJECTED").
 
 // RECOVERY
