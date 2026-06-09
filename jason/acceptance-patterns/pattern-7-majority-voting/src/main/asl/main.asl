@@ -1,6 +1,6 @@
-setting("provider1", "gemini"). setting("model1", "gemini-2.5-flash").
+setting("provider1", "cerebras"). setting("model1", "gpt-oss-120b").
 setting("provider2", "cerebras"). setting("model2", "gpt-oss-120b").
-setting("provider3", "gemini"). setting("model3", "gemini-2.5-flash").
+setting("provider3", "cerebras"). setting("model3", "gpt-oss-120b").
 
 consensus_reached(true) :- consensus_label(_).
 

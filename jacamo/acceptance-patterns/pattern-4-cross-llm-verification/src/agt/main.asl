@@ -1,4 +1,4 @@
-setting("primary_provider", "gemini"). setting("primary_model", "gemini-2.5-flash").
+setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
 setting("reviewer_provider", "cerebras"). setting("reviewer_model", "gpt-oss-120b").
 attempt_count(0).
 

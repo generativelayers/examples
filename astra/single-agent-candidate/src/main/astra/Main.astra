@@ -11,7 +11,7 @@ agent Main {
         formula rejected(string, string);
     }
 
-    initial setting("model", "gemini-2.5-flash"), setting("provider", "gemini");
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
     // DOMAIN MODEL
     inference classified(string item, string label, string conf) :-

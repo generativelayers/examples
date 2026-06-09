@@ -1,4 +1,4 @@
-setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 assessed(Rid) :- accepted(Rid).
 assessed(Rid) :- rejected(Rid).

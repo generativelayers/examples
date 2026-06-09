@@ -27,16 +27,16 @@ agent PatternRunner {
     // ── DECOMPOSITION: main → cast 3 votes → check consensus ──
     rule +!main(list args) {
         // Vote 1: Gemini
-        gl.configure("model", "gemini-2.5-flash");
-        gl.use_provider("gemini");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         !vote_cast(1);
         // Vote 2: Cerebras
         gl.configure("model", "gpt-oss-120b");
         gl.use_provider("cerebras");
         !vote_cast(2);
         // Vote 3: Gemini again
-        gl.configure("model", "gemini-2.5-flash");
-        gl.use_provider("gemini");
+        gl.configure("model", "gpt-oss-120b");
+        gl.use_provider("cerebras");
         !vote_cast(3);
         // Tally
         !consensus_reached(true);

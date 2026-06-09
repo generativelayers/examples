@@ -12,7 +12,7 @@ agent PatternRunner {
         formula classified(string);
     }
 
-    initial setting("model", "gemini-2.5-flash"), setting("provider", "gemini");
+    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
     inference validated(string rid) :- accepted(rid);
     inference validated(string rid) :- rejected(rid);

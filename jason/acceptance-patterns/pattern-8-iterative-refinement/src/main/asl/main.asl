@@ -1,4 +1,4 @@
-setting("model", "gemini-2.5-flash"). setting("provider", "gemini").
+setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 refined(Rid) :- accepted_final(true).
 
