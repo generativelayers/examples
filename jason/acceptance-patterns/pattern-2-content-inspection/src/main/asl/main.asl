@@ -25,7 +25,8 @@ inspected(Rid) :- rejected(Rid).
       gl.invoke("agent1", "classify", "llm.answer", "ANSWER",
                "Based on the Agent beliefs, classify: apple",
                "label,confidence", Rid);
-      !inspected(Rid).
+      !inspected(Rid);
+      .stopMAS.
 
 // ACHIEVEMENT: setup (actions only)
 +!configured(true)

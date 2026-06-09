@@ -2,6 +2,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula setting(string, string);
@@ -20,6 +21,7 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured(true);
         !validated(gl.ask("agent1", "classify", "Classify: apple"));
+        S.exit();
     }
 
     rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {

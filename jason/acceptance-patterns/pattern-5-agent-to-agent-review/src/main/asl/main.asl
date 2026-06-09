@@ -22,7 +22,8 @@ reviewed(Cid) :- peer_approved(Cid).
 +!start
    <- !configured(true);
       gl.ask("agent1", "classify", "Classify: tomato", Rid);
-      !reviewed(Rid).
+      !reviewed(Rid);
+      .stopMAS.
 
 // ACHIEVEMENT: setup (actions only)
 +!configured(true)

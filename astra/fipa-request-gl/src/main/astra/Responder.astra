@@ -2,6 +2,7 @@
 agent Responder extends GLOntology {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types responder_types {
         formula setting(string, string);

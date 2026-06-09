@@ -14,6 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula primary_setting(string, string);
@@ -31,6 +32,7 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured_primary(true);
         !classified("apple");
+        S.exit();
     }
 
     // ── ACHIEVEMENT: configure primary provider ──

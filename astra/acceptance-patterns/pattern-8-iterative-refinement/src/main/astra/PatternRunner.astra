@@ -14,6 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula setting(string, string);
@@ -29,6 +30,7 @@ agent PatternRunner {
         !configured(true);
         !refined(gl.ask("agent1", "step1",
             "Write a short paragraph about photosynthesis."));
+        S.exit();
     }
 
     // ── ACHIEVEMENT: configure provider ──

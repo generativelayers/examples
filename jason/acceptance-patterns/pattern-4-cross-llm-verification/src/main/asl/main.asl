@@ -10,7 +10,8 @@ verified(Rid) :- rejected(Rid).
 +!start
    <- !configured_primary;
       gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !verified(Rid).
+      !verified(Rid);
+      .stopMAS.
 
 +!configured_primary
    :  setting("primary_model", M) & setting("primary_provider", P)

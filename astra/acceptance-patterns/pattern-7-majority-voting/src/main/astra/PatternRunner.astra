@@ -14,6 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula vote(int, string, string, string);
@@ -40,6 +41,7 @@ agent PatternRunner {
         !vote_cast(3);
         // Tally
         !consensus_reached(true);
+        S.exit();
     }
 
     // ── ACHIEVEMENT: cast a vote, store result + candidate ──

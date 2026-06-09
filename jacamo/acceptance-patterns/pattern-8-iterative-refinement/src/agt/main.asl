@@ -8,7 +8,8 @@ refined(Rid) :- accepted_final(true).
    <- !artifact_ready;
       !configured(true);
       ask("agent1", "step1", "Write short text about photosynthesis", DraftRid);
-      !refined(DraftRid).
+      !refined(DraftRid);
+      .stopMAS.
 
 +!artifact_ready
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);

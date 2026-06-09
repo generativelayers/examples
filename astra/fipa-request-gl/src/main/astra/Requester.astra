@@ -1,6 +1,7 @@
 // Pipeline: start → send(request) → +waiting → @message(inform) → !response_handled → ?adopted|rejected
 agent Requester extends GLOntology {
     module Console console;
+    module astra.lang.System S;
 
     types requester_types {
         formula waiting_for_response(string);
@@ -60,6 +61,7 @@ agent Requester extends GLOntology {
         +rejected_response(resultId);
         -waiting_for_response("classify_food");
         console.println("=== FIPA Request + GL Demo Complete (failed) ===");
+        S.exit();
     }
 
     // RECOVERY

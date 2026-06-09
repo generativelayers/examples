@@ -11,7 +11,8 @@ verified(Rid) :- rejected(Rid).
    <- !artifact_ready;
       !configured_primary;
       ask("agent1", "classify", "Classify apple", Rid);
-      !verified(Rid).
+      !verified(Rid);
+      .stopMAS.
 
 +!artifact_ready
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);

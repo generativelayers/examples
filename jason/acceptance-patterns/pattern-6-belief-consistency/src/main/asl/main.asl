@@ -10,7 +10,8 @@ consistent(Rid) :- adopted_new(Rid).
 +!start
    <- !configured(true);
       gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !consistent(Rid).
+      !consistent(Rid);
+      .stopMAS.
 
 +!configured(true)
    :  setting("model", M) & setting("provider", P)

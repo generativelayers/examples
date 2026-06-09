@@ -10,7 +10,8 @@ assessed(Rid) :- escalated(Rid).
    <- !artifact_ready;
       !configured(true);
       invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify apple. Return label and confidence_tier high medium or low.", "label,confidence_tier", Rid);
-      !assessed(Rid).
+      !assessed(Rid);
+      .stopMAS.
 
 +!artifact_ready
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);

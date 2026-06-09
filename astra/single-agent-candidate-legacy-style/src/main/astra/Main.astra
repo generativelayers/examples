@@ -8,6 +8,7 @@
 agent Main {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula classified(string, string, string);
@@ -25,6 +26,7 @@ agent Main {
         gl.configure("model", "gpt-oss-120b");
         gl.use_provider("cerebras");
         !classified("apple");
+        S.exit();
     }
 
     // ACHIEVEMENT: display banner

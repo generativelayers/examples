@@ -2,6 +2,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula setting(string, string);
@@ -27,6 +28,7 @@ agent PatternRunner {
             "Based on the Agent beliefs, classify: apple",
             "label,confidence", "category(apple, fruit)"
         ));
+        S.exit();
     }
 
     // ACHIEVEMENT: setup

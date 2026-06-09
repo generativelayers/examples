@@ -25,7 +25,8 @@ validated(Rid) :- rejected(Rid).
    <- !artifact_ready;
       !configured(true);
       ask("agent1", "classify", "Classify: apple", Rid);
-      !validated(Rid).
+      !validated(Rid);
+      .stopMAS.
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready

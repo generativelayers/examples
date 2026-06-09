@@ -21,7 +21,8 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 +!start
    <- !banner;
       !configured(true);
-      !classified("apple").
+      !classified("apple");
+      .stopMAS.
 
 // ACHIEVEMENT: display banner (actions only)
 +!banner

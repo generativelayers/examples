@@ -11,7 +11,8 @@ consistent(Rid) :- adopted_new(Rid).
    <- !artifact_ready;
       !configured(true);
       ask("agent1", "classify", "Classify: apple", Rid);
-      !consistent(Rid).
+      !consistent(Rid);
+      .stopMAS.
 
 +!artifact_ready
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);

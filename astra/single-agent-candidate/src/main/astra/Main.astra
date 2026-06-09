@@ -2,6 +2,7 @@
 agent Main {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula setting(string, string);
@@ -22,6 +23,7 @@ agent Main {
         !banner();
         !configured(true);
         !classified("apple");
+        S.exit();
     }
 
     // ACHIEVEMENT: display banner

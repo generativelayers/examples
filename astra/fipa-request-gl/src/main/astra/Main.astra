@@ -1,6 +1,7 @@
 // Pipeline: main → !agents_created → S.createAgent(responder, requester)
 agent Main {
     module Console console;
+    module astra.lang.System S;
     module System S;
 
     types orchestration {

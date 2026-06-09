@@ -14,6 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
     module System S;
 
     types review_types {
@@ -34,6 +35,7 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured(true);
         !reviewed(gl.ask("agent1", "classify", "Classify: tomato. Return a label field."));
+        S.exit();
     }
 
     // ── ACHIEVEMENT: configure provider ──

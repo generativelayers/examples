@@ -5,6 +5,7 @@
  */
 agent Main {
     module Console console;
+    module astra.lang.System S;
     module System S;
 
     rule +!main(list args) {

@@ -22,7 +22,8 @@ validated(Rid) :- rejected(Rid).
 +!start
    <- !configured(true);
       gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !validated(Rid).
+      !validated(Rid);
+      .stopMAS.
 
 // ACHIEVEMENT: setup (actions only)
 +!configured(true)

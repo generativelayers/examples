@@ -13,7 +13,8 @@ consensus_reached(true) :- consensus_label(_).
       configure("model", "gpt-oss-120b");
       use_provider("cerebras");
       !vote_cast(3);
-      !consensus_reached(true).
+      !consensus_reached(true);
+      .stopMAS.
 
 +!artifact_ready
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);

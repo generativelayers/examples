@@ -7,7 +7,8 @@ refined(Rid) :- accepted_final(true).
 +!start
    <- !configured(true);
       gl.ask("agent1", "step1", "Write short text about photosynthesis", DraftRid);
-      !refined(DraftRid).
+      !refined(DraftRid);
+      .stopMAS.
 
 +!configured(true)
    :  setting("model", M) & setting("provider", P)

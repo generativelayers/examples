@@ -20,7 +20,8 @@ reviewed(Cid) :- peer_approved(Cid).
    <- !artifact_ready;
       !configured(true);
       ask("agent1", "classify", "Classify: tomato", Rid);
-      !reviewed(Rid).
+      !reviewed(Rid);
+      .stopMAS.
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready

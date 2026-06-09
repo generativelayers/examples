@@ -30,7 +30,8 @@ attempt(0).
           "Classify 'banana' as food. Return label and confidence.",
           "label,confidence", 2
       );
-      !demo_complete.
+      !demo_complete;
+      .stopMAS.
 
 // ACHIEVEMENT: display banner (actions only)
 +!banner

@@ -2,6 +2,7 @@
 agent Main {
     module gl.astra.GL gl;
     module Console console;
+    module astra.lang.System S;
 
     types governance {
         formula setting(string, string);
@@ -28,6 +29,7 @@ agent Main {
             "label,confidence", 2
         );
         !demo_complete();
+        S.exit();
     }
 
     // ACHIEVEMENT: display banner

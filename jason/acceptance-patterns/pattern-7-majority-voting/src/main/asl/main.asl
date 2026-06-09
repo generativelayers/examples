@@ -8,7 +8,8 @@ consensus_reached(true) :- consensus_label(_).
 
 +!start
    <- !votes_collected(true);
-      !consensus_reached(true).
+      !consensus_reached(true);
+      .stopMAS.
 
 +!votes_collected(true)
    <- !vote_cast(1);

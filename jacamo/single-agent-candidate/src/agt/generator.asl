@@ -19,7 +19,8 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
    <- !artifact_ready;
       !banner;
       !configured(true);
-      !classified("apple").
+      !classified("apple");
+      .stopMAS.
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready
