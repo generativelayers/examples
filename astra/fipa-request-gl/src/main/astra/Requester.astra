@@ -1,7 +1,7 @@
-// Pipeline: start → send(request) → +waiting → @message(inform) → !response_handled → ?adopted|rejected
+// Pipeline: start ' send(request) ' +waiting ' @message(inform) ' !response_handled ' ?adopted|rejected
 agent Requester extends GLOntology {
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types requester_types {
         formula waiting_for_response(string);
@@ -33,7 +33,7 @@ agent Requester extends GLOntology {
         console.println("[Requester] Request sent. Waiting for response...");
     }
 
-    // REACTIVE: valid response → adopt result
+    // REACTIVE: valid response ' adopt result
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :
@@ -49,7 +49,7 @@ agent Requester extends GLOntology {
         console.println("=== FIPA Request + GL Demo Complete ===");
     }
 
-    // REACTIVE: invalid response → reject
+    // REACTIVE: invalid response ' reject
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :

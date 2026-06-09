@@ -1,7 +1,7 @@
 /**
  * Pattern 8: Iterative Refinement
  *
- * Three-stage pipeline: draft → check → revise.
+ * Three-stage pipeline: draft ' check ' revise.
  * Each stage is a separate LLM call; the final output is accepted.
  *
  * Principles used:
@@ -14,7 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -25,27 +25,32 @@ agent PatternRunner {
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
-    // ── DECOMPOSITION: main → configure → refine ──
+    // "" DECOMPOSITION: main ' configure ' refine ""
     rule +!main(list args) {
         !configured(true);
         !refined(gl.ask("agent1", "step1",
             "Write a short paragraph about photosynthesis."));
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
-    // ── ACHIEVEMENT: configure provider ──
+    // "" ACHIEVEMENT: configure provider ""
     rule +!configured(boolean x) :
             setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
-    // ── SERENDIPITY: already refined ──
+    // "" SERENDIPITY: already refined ""
     rule +!refined(string rid) : refined(rid) {
         console.println("Already refined: " + rid);
     }
 
-    // ── MEANS-END: draft → check → revise → accept ──
+    // "" MEANS-END: draft ' check ' revise ' accept ""
     rule +!refined(string draftRid) {
         string draftText = gl.field(draftRid, "answer");
         console.println("[Draft] " + draftText);
@@ -66,11 +71,11 @@ agent PatternRunner {
         string cid = gl.candidate(finalRid);
         gl.accept(cid);
         +refined(draftRid);
-        console.println("Final candidate → ACCEPTED");
+        console.println("Final candidate ' ACCEPTED");
     }
 
-    // ── RECOVERY ──
-    rule -!refined(string rid) {
+    // "" RECOVERY ""
+    rule -!refined(string rid) : ~refined(string _) {
         console.println("Pipeline FAILED for " + rid);
     }
 }

@@ -1,9 +1,9 @@
-// Pipeline: start → !artifact_ready → !banner → !configured → !classified(food) → !invoked → !deliberated → accept|reject
+// Pipeline: start > !artifact_ready > !banner > !configured > !classified(food) > !invoked > !deliberated > accept|reject
 /**
- * Single Agent Candidate — Generative Layer demonstration (JaCaMo).
+ * Single Agent Candidate - Generative Layer demonstration (JaCaMo).
  *
  * Shows the fundamental Generative Layer flow using CArtAgO artifacts:
- *   artifact_ready → configure → invoke → validate → accept/reject → trace
+ *   artifact_ready > configure > invoke > validate > accept/reject > trace
  */
 
 // setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
@@ -49,7 +49,7 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
              Prompt, "label,confidence", Rid);
       !invoked(Rid).
 
-// DECOMPOSITION: bind rid once → log → deliberate
+// DECOMPOSITION: bind rid once > log > deliberate
 +!invoked(Rid)
    <- !log_invocation(Rid);
       !deliberated(Rid).
@@ -63,28 +63,28 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
    :  accepted(Rid)
    <- .println("[AGENT] Already deliberated: ", Rid).
 
-// DECOMPOSITION: bind validity → branch
+// DECOMPOSITION: bind validity > branch
 +!deliberated(Rid)
    <- valid(Rid, IsValid);
       !deliberated_branch(Rid, IsValid).
 
-// DECOMPOSITION: valid → check admissibility → accept/reject + trace
+// DECOMPOSITION: valid > check admissibility > accept/reject + trace
 +!deliberated_branch(Rid, true)
    <- admissible(Rid, IsAdmissible);
       candidate(Rid, Cid);
       !deliberated_admissible(Rid, Cid, IsAdmissible);
       !print_trace(Rid).
 
-// DECOMPOSITION: invalid → reject + trace
+// DECOMPOSITION: invalid > reject + trace
 +!deliberated_branch(Rid, false)
    <- !rejected_candidate("", Rid);
       !print_trace(Rid).
 
-// ACHIEVEMENT: admissible → accept
+// ACHIEVEMENT: admissible > accept
 +!deliberated_admissible(Rid, Cid, true)
    <- !accepted_candidate(Rid, Cid).
 
-// ACHIEVEMENT: not admissible → reject
+// ACHIEVEMENT: not admissible > reject
 +!deliberated_admissible(Rid, Cid, false)
    <- !rejected_candidate(Cid, Rid).
 

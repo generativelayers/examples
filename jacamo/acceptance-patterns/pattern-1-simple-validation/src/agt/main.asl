@@ -1,12 +1,12 @@
-// Pipeline: start → !artifact_ready → !configured → !validated → ?validated
+// Pipeline: start > !artifact_ready > !configured > !validated > ?validated
 /**
- * Pattern 1: Simple Validation — JaCaMo
+ * Pattern 1: Simple Validation - JaCaMo
  *
  * The simplest governance pattern: accept valid output, reject invalid.
  * Demonstrates the fundamental valid/invalid context-guard branching.
  *
  * NOTE: In JaCaMo, GL operations (valid, field, candidate, accept, reject)
- * are CArtAgO artifact operations — they MUST be called in plan bodies,
+ * are CArtAgO artifact operations - they MUST be called in plan bodies,
  * not in context guards. valid() binds its result; branching is done
  * by passing the bound value to a subgoal.
  */
@@ -44,12 +44,12 @@ validated(Rid) :- rejected(Rid).
    :  validated(Rid)
    <- .println("Already validated: ", Rid).
 
-// DECOMPOSITION: bind validity → branch
+// DECOMPOSITION: bind validity > branch
 +!validated(Rid)
    <- valid(Rid, IsValid);
       !validated_branch(Rid, IsValid).
 
-// ACHIEVEMENT: valid → accept, verify
+// ACHIEVEMENT: valid > accept, verify
 +!validated_branch(Rid, true)
    <- candidate(Rid, Cid);
       accept(Cid);
@@ -59,12 +59,12 @@ validated(Rid) :- rejected(Rid).
       ?validated(Rid);
       .println("ACCEPTED: ", Label).
 
-// ACHIEVEMENT: invalid → reject the concrete candidate
+// ACHIEVEMENT: invalid > reject the concrete candidate
 +!validated_branch(Rid, false)
    <- candidate(Rid, Cid);
       reject(Cid);
       +rejected(Rid);
-      .println("Invalid output → REJECTED").
+      .println("Invalid output > REJECTED").
 
 // RECOVERY
 -!validated(Rid)

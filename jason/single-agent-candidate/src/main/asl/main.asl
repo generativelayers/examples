@@ -1,9 +1,9 @@
-// Pipeline: start → !banner → !configured → !classified(food) → !invoked → !deliberated → accept|reject
+// Pipeline: start > !banner > !configured > !classified(food) > !invoked > !deliberated > accept|reject
 /**
- * Single Agent Candidate — Generative Layer demonstration (Jason).
+ * Single Agent Candidate - Generative Layer demonstration (Jason).
  *
  * Shows the fundamental Generative Layer flow:
- *   configure → invoke → validate → accept/reject → trace
+ *   configure > invoke > validate > accept/reject > trace
  */
 
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
@@ -46,7 +46,7 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
                Prompt, "label,confidence", Rid);
       !invoked(Rid).
 
-// DECOMPOSITION: bind rid once → log → deliberate
+// DECOMPOSITION: bind rid once > log > deliberate
 +!invoked(Rid)
    <- !log_invocation(Rid);
       !deliberated(Rid).
@@ -60,21 +60,21 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
    :  accepted(Rid)
    <- .println("[AGENT] Already deliberated: ", Rid).
 
-// DECOMPOSITION: valid + admissible → accept + trace
+// DECOMPOSITION: valid + admissible > accept + trace
 +!deliberated(Rid)
    :  gl.valid(Rid, true) & gl.admissible(Rid, true)
    <- gl.candidate(Rid, Cid);
       !accepted_candidate(Rid, Cid);
       !print_trace(Rid).
 
-// DECOMPOSITION: valid but not admissible → reject + trace
+// DECOMPOSITION: valid but not admissible > reject + trace
 +!deliberated(Rid)
    :  gl.valid(Rid, true) & gl.admissible(Rid, false)
    <- gl.candidate(Rid, Cid);
       !rejected_candidate(Cid, Rid);
       !print_trace(Rid).
 
-// DECOMPOSITION: invalid → reject + trace
+// DECOMPOSITION: invalid > reject + trace
 +!deliberated(Rid)
    :  gl.valid(Rid, false)
    <- !rejected_candidate("", Rid);

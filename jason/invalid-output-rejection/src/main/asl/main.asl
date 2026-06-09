@@ -1,6 +1,6 @@
-// Pipeline: start → !banner → !configured → !try_classify(strict) → !try_classify(relaxed) → !demo_complete
+// Pipeline: start > !banner > !configured > !try_classify(strict) > !try_classify(relaxed) > !demo_complete
 /**
- * Invalid Output Rejection — Generative Layer demonstration (Jason).
+ * Invalid Output Rejection - Generative Layer demonstration (Jason).
  *
  * Shows how the Generative Layer framework handles invalid/malformed
  * generative output.
@@ -49,7 +49,7 @@ attempt(0).
    <- gl.configure("model", M);
       gl.use_provider(P).
 
-// DECOMPOSITION: classify = log attempt → invoke → deliberate
+// DECOMPOSITION: classify = log attempt > invoke > deliberate
 +!try_classify(Prompt, RequiredCsv, AttemptNum)
    <- !log_attempt(AttemptNum, RequiredCsv);
       gl.invoke("agent_a", "classify_food", "llm.answer", "ANSWER",
@@ -61,7 +61,7 @@ attempt(0).
    <- .println("[ATTEMPT ", AttemptNum, "] Invoking gl...");
       .println("[ATTEMPT ", AttemptNum, "]   required = ", RequiredCsv).
 
-// ACHIEVEMENT: valid → accept
+// ACHIEVEMENT: valid > accept
 +!deliberated(Rid, AttemptNum)
    :  gl.valid(Rid, true)
    <- gl.outcome(Rid, Outcome);
@@ -79,7 +79,7 @@ attempt(0).
       .println("[ATTEMPT ", AttemptNum, "]     confidence = ", Confidence);
       .println("").
 
-// ACHIEVEMENT: invalid → reject (fail-closed)
+// ACHIEVEMENT: invalid > reject (fail-closed)
 +!deliberated(Rid, AttemptNum)
    :  gl.valid(Rid, false)
    <- gl.outcome(Rid, Outcome);
@@ -89,7 +89,7 @@ attempt(0).
       gl.reject(Cid);
       +rejected(Cid, Outcome);
       -+attempt(AttemptNum);
-      .println("[ATTEMPT ", AttemptNum, "]   REJECTED — ", Outcome);
+      .println("[ATTEMPT ", AttemptNum, "]   REJECTED - ", Outcome);
       .println("[ATTEMPT ", AttemptNum, "]   No beliefs adopted. Fail-closed.");
       .println("").
 

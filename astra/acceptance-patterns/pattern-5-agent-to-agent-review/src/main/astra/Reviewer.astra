@@ -1,4 +1,4 @@
-// Pipeline: @message → +review_pending → !review_decided → send(approve|reject) → ?review_decided
+// Pipeline: @message > +review_pending > !review_decided > send(approve|reject)
 agent Reviewer {
     module Console console;
 
@@ -11,17 +11,19 @@ agent Reviewer {
         formula known_food(string);
     }
 
-    initial known_food("fruit"), known_food("vegetable"), known_food("grain");
+    initial known_food("fruit"), known_food("vegetable"), known_food("grain"),
+           known_food("dairy"), known_food("protein"), known_food("food");
 
     // DOMAIN MODEL
     inference review_decided(string cid) :- review_approved(cid);
 
-    // REACTIVE: incoming request → store as belief
+    // REACTIVE: incoming request > store as belief
     rule @message(request, string sender, review_request(string label, string cid)) {
+        console.println("[Reviewer] Received review request: label='" + label + "', cid=" + cid);
         +review_pending(label, cid, sender);
     }
 
-    // DELIBERATION: pending review → adopt decision goal
+    // DELIBERATION: pending review > adopt decision goal
     rule +review_pending(string label, string cid, string sender) : ~review_decided(cid) {
         !review_decided(cid);
     }
@@ -31,22 +33,21 @@ agent Reviewer {
         console.println("[Reviewer] Already decided for " + cid);
     }
 
-    // ACHIEVEMENT: known → approve
+    // ACHIEVEMENT: known > approve
     rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & known_food(label) {
         send(inform, sender, review_approved(cid));
         +review_approved(cid);
-        ?review_decided(cid);
-        console.println("[Reviewer] '" + label + "' is known → APPROVED");
+        console.println("[Reviewer] '" + label + "' is known > APPROVED");
     }
 
-    // ACHIEVEMENT: unknown → reject
+    // ACHIEVEMENT: unknown > reject
     rule +!review_decided(string cid) : review_pending(string label, cid, string sender) & ~known_food(label) {
         send(inform, sender, review_rejected(cid, "not in knowledge base"));
-        console.println("[Reviewer] '" + label + "' is unknown → DISAPPROVED");
+        console.println("[Reviewer] '" + label + "' is unknown > DISAPPROVED");
     }
 
-    // RECOVERY
-    rule -!review_decided(string cid) {
+    // RECOVERY: only fire when no decision was actually made
+    rule -!review_decided(string cid) : ~review_approved(cid) {
         console.println("[Reviewer] Decision FAILED for " + cid);
     }
 }

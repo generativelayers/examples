@@ -1,6 +1,6 @@
-// Pipeline: start → !artifact_ready → !configured → !inspected → !known_category → ?inspected
+// Pipeline: start > !artifact_ready > !configured > !inspected > !known_category > ?inspected
 /**
- * Pattern 2: Content Inspection — JaCaMo
+ * Pattern 2: Content Inspection - JaCaMo
  *
  * After validation, inspects the LLM output against the agent's
  * own knowledge base. Accepts only if the label is a known category.
@@ -42,12 +42,12 @@ inspected(Rid) :- rejected(Rid).
    :  inspected(Rid)
    <- .println("Already inspected: ", Rid).
 
-// DECOMPOSITION: bind validity → branch
+// DECOMPOSITION: bind validity > branch
 +!inspected(Rid)
    <- valid(Rid, IsValid);
       !inspected_branch(Rid, IsValid).
 
-// DECOMPOSITION: valid → check content. Do not mark accepted here.
+// DECOMPOSITION: valid > check content. Do not mark accepted here.
 // Acceptance/rejection is performed only by the known_category branches.
 +!inspected_branch(Rid, true)
    <- candidate(Rid, Cid);
@@ -55,26 +55,26 @@ inspected(Rid) :- rejected(Rid).
       !known_category(Rid, Cid, Label);
       ?inspected(Rid).
 
-// ACHIEVEMENT: invalid → reject the concrete candidate
+// ACHIEVEMENT: invalid > reject the concrete candidate
 +!inspected_branch(Rid, false)
    <- candidate(Rid, Cid);
       reject(Cid);
       +rejected(Rid);
-      .println("Invalid output → REJECTED").
+      .println("Invalid output > REJECTED").
 
-// ACHIEVEMENT: known → accept
+// ACHIEVEMENT: known > accept
 +!known_category(Rid, Cid, Label)
    :  known(Label)
    <- accept(Cid);
       +accepted(Rid);
-      .println("Known category '", Label, "' → ACCEPTED").
+      .println("Known category '", Label, "' > ACCEPTED").
 
-// ACHIEVEMENT: unknown → reject
+// ACHIEVEMENT: unknown > reject
 +!known_category(Rid, Cid, Label)
    :  not known(Label)
    <- reject(Cid);
       +rejected(Rid);
-      .println("Unknown category '", Label, "' → REJECTED").
+      .println("Unknown category '", Label, "' > REJECTED").
 
 // RECOVERY
 -!inspected(Rid)

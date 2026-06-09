@@ -1,5 +1,5 @@
 /**
- * GLOntology — Shared Generative Layer types for multi-agent systems.
+ * GLOntology - Shared Generative Layer types for multi-agent systems.
  *
  * All GL-aware agents should extend this agent to share a common
  * vocabulary for candidates, assessments, and verdicts. This ensures
@@ -8,13 +8,13 @@
  * Usage:
  *   agent MyAgent extends GLOntology { ... }
  *
- * This is the ASTRA equivalent of a "shared ontology" — a compile-time
+ * This is the ASTRA equivalent of a "shared ontology" - a compile-time
  * checked vocabulary that all agents in the MAS agree on.
  */
 agent GLOntology {
 
     types gl_ontology {
-        // ── Candidate lifecycle ─────────────────────────────────
+        // - Candidate lifecycle -
         formula gl_candidate(string, string, string);
             // gl_candidate(candidateId, type, status)
             //   type:   CANDIDATE_ANSWER, GROUNDED_FACT, TASK_DECOMPOSITION, etc.
@@ -23,7 +23,7 @@ agent GLOntology {
         formula gl_result(string, string, string, boolean);
             // gl_result(resultId, agentId, goalId, isValid)
 
-        // ── Assessment protocol ─────────────────────────────────
+        // - Assessment protocol -
         formula gl_assessment(string, string, string, double);
             // gl_assessment(assessmentId, assessorId, verdict, confidence)
 
@@ -31,7 +31,7 @@ agent GLOntology {
             // gl_verdict(candidateId, verdict, explanation)
             //   verdict: ACCEPT, REJECT, UNCERTAIN, NEEDS_EVIDENCE, NEEDS_HUMAN
 
-        // ── FIPA Request payloads ───────────────────────────────
+        // - FIPA Request payloads -
         formula gl_generate_request(string, string, string, string);
             // gl_generate_request(goalId, affordance, prompt, requiredFields)
 
@@ -41,18 +41,18 @@ agent GLOntology {
         formula gl_assess_request(string, string, string, string);
             // gl_assess_request(candidateId, label, confidence, context)
 
-        // ── Decomposition protocol ──────────────────────────────
+        // - Decomposition protocol -
         formula gl_plan(string, list);
             // gl_plan(planId, steps)
 
         formula gl_step(int, string, string);
             // gl_step(stepIndex, description, status)
 
-        // ── Reflection protocol ─────────────────────────────────
+        // - Reflection protocol -
         formula gl_reflection(string, string, double, string);
             // gl_reflection(candidateId, verdict, confidence, critique)
 
-        // ── Trace beliefs ───────────────────────────────────────
+        // - Trace beliefs -
         formula gl_trace(string, string, string, string);
             // gl_trace(traceId, agentId, goalId, outcome)
     }

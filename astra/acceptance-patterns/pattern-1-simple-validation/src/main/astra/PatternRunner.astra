@@ -1,8 +1,8 @@
-// Pipeline: main → !configured → !validated → ?validated
+// Pipeline: main ' !configured ' !validated ' ?validated
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -21,6 +21,11 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured(true);
         !validated(gl.ask("agent1", "classify", "Classify: apple"));
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -37,17 +42,16 @@ agent PatternRunner {
         gl.accept(gl.candidate(rid));
         +accepted(rid);
         +classified(gl.field(rid, "label"));
-        ?validated(rid);
         console.println("ACCEPTED: " + gl.field(rid, "label"));
     }
 
     rule +!validated(string rid) {
         gl.reject(gl.candidate(rid));
         +rejected(rid);
-        console.println("Invalid output → REJECTED");
+        console.println("Invalid output ' REJECTED");
     }
 
-    rule -!validated(string rid) {
+    rule -!validated(string rid) : ~accepted(string _) & ~rejected(string _) {
         console.println("Validation FAILED for " + rid);
     }
 }

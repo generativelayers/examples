@@ -1,8 +1,8 @@
-// Pipeline: +!review_request → +review_pending → !review_decided → send(approve|reject) → ?review_decided
+// Pipeline: +!review_request > +review_pending > !review_decided > send(approve|reject) > ?review_decided
 /**
- * Pattern 5: Agent-to-Agent Review — Jason (Reviewer)
+ * Pattern 5: Agent-to-Agent Review - Jason (Reviewer)
  *
- * Pure BDI reviewer — no LLM involved.
+ * Pure BDI reviewer - no LLM involved.
  * Checks the label against its own beliefs and responds.
  */
 
@@ -14,7 +14,7 @@ known_food("fruit"). known_food("vegetable"). known_food("grain").
 // DOMAIN MODEL
 review_decided(Cid) :- review_approved(Cid).
 
-// ACHIEVEMENT: incoming request → store and deliberate
+// ACHIEVEMENT: incoming request > store and deliberate
 +!review_request(Label, Cid)
    <- +review_pending(Label, Cid);
       !review_decided(Cid).
@@ -24,19 +24,19 @@ review_decided(Cid) :- review_approved(Cid).
    :  review_decided(Cid)
    <- .println("[Reviewer] Already decided for ", Cid).
 
-// ACHIEVEMENT: known → approve
+// ACHIEVEMENT: known > approve
 +!review_decided(Cid)
    :  review_pending(Label, Cid) & known_food(Label)
    <- .send(main, tell, review_approved(Cid));
       +review_approved(Cid);
       ?review_decided(Cid);
-      .println("[Reviewer] '", Label, "' is known → APPROVED").
+      .println("[Reviewer] '", Label, "' is known > APPROVED").
 
-// ACHIEVEMENT: unknown → reject
+// ACHIEVEMENT: unknown > reject
 +!review_decided(Cid)
    :  review_pending(Label, Cid) & not known_food(Label)
    <- .send(main, tell, review_rejected(Cid, "not in knowledge base"));
-      .println("[Reviewer] '", Label, "' is unknown → DISAPPROVED").
+      .println("[Reviewer] '", Label, "' is unknown > DISAPPROVED").
 
 // RECOVERY
 -!review_decided(Cid)

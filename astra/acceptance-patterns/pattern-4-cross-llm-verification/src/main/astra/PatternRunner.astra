@@ -5,7 +5,7 @@
  * If their labels agree, the candidate is accepted.
  *
  * Principles used:
- *   - Deliberation Plans  (main → goal adoption)
+ *   - Deliberation Plans  (main ' goal adoption)
  *   - Means-End Reasoning (how to achieve each goal)
  *   - Serendipity Plans   (goal already satisfied)
  *   - Recovery Plans      (handle failures)
@@ -14,7 +14,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula primary_setting(string, string);
@@ -28,14 +28,19 @@ agent PatternRunner {
     initial verifier_setting("model", "gpt-oss-120b"),
             verifier_setting("provider", "cerebras");
 
-    // ── DECOMPOSITION: main → configure → classify ──
+    // "" DECOMPOSITION: main ' configure ' classify ""
     rule +!main(list args) {
         !configured_primary(true);
         !classified("apple");
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
-    // ── ACHIEVEMENT: configure primary provider ──
+    // "" ACHIEVEMENT: configure primary provider ""
     rule +!configured_primary(boolean x) :
             primary_setting("model", string m) &
             primary_setting("provider", string p) {
@@ -43,7 +48,7 @@ agent PatternRunner {
         gl.use_provider(p);
     }
 
-    // ── ACHIEVEMENT: configure verifier provider ──
+    // "" ACHIEVEMENT: configure verifier provider ""
     rule +!configured_verifier(boolean x) :
             verifier_setting("model", string m) &
             verifier_setting("provider", string p) {
@@ -51,18 +56,18 @@ agent PatternRunner {
         gl.use_provider(p);
     }
 
-    // ── DECOMPOSITION: classify → verify ──
+    // "" DECOMPOSITION: classify ' verify ""
     rule +!classified(string item) {
         string rid = gl.ask("agent1", "classify", "Classify: " + item);
         !verified(rid);
     }
 
-    // ── SERENDIPITY: already verified ──
+    // "" SERENDIPITY: already verified ""
     rule +!verified(string rid) : verified(rid) {
         console.println("Already verified: " + rid);
     }
 
-    // ── MEANS-END: check output and cross-verify ──
+    // "" MEANS-END: check output and cross-verify ""
     rule +!verified(string rid) {
         boolean isValid = gl.valid(rid);
         if (isValid) {
@@ -74,11 +79,11 @@ agent PatternRunner {
         } else {
             gl.reject(gl.candidate(rid));
             +rejected(rid);
-            console.println("Invalid primary output → REJECTED");
+            console.println("Invalid primary output ' REJECTED");
         }
     }
 
-    // ── DECOMPOSITION: cross-check with verifier ──
+    // "" DECOMPOSITION: cross-check with verifier ""
     rule +!cross_checked(string rid, string primaryLabel, string primaryCid) {
         !configured_verifier(true);
         string vrid = gl.ask("agent1", "verify",
@@ -90,30 +95,31 @@ agent PatternRunner {
                 string verifierCid = gl.candidate(vrid);
                 gl.accept(primaryCid);
                 gl.accept(verifierCid);
-                console.println("[Verifier] label = " + verifierLabel + " → MATCH → ACCEPTED");
+                +verified(rid);
+                console.println("[Verifier] label = " + verifierLabel + " ' MATCH ' ACCEPTED");
             } else {
                 gl.reject(primaryCid);
                 gl.reject(gl.candidate(vrid));
                 +rejected(rid);
-                console.println("[Verifier] label = " + verifierLabel + " ≠ " + primaryLabel + " → REJECTED");
+                console.println("[Verifier] label = " + verifierLabel + "  " + primaryLabel + " ' REJECTED");
             }
         } else {
             gl.reject(primaryCid);
             +rejected(rid);
-            console.println("Verifier output invalid → REJECTED");
+            console.println("Verifier output invalid ' REJECTED");
         }
     }
 
-    // ── RECOVERY ──
-    rule -!verified(string rid) {
+    // "" RECOVERY ""
+    rule -!verified(string rid) : ~verified(string _) & ~rejected(string _) {
         console.println("Verification FAILED for " + rid);
     }
 
-    rule -!cross_checked(string rid, string label, string cid) {
+    rule -!cross_checked(string rid, string label, string cid) : ~verified(string _) & ~rejected(string _) {
         console.println("Cross-check FAILED for " + rid);
     }
 
-    rule -!classified(string item) {
+    rule -!classified(string item) : ~verified(string _) & ~rejected(string _) {
         console.println("Classification FAILED for " + item);
     }
 }

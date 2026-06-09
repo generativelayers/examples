@@ -1,17 +1,17 @@
 /**
- * gl_ontology.asl β€” Shared Generative Layer beliefs for Jason MAS.
+ * gl_ontology.asl " Shared Generative Layer beliefs for Jason MAS.
  *
  * All GL-aware Jason agents should include this file:
  *   { include("gl_ontology.asl") }
  *
  * This provides a shared vocabulary for candidates, assessments,
- * and verdicts β€” the Jason equivalent of the ASTRA GLOntology agent.
+ * and verdicts " the Jason equivalent of the ASTRA GLOntology agent.
  *
  * These are initial beliefs that describe the GL type system.
  * Agents can query these to validate message content at runtime.
  */
 
-// β”€β”€ GL Type Definitions (as initial beliefs) 
+// "" GL Type Definitions (as initial beliefs) 
 
 // Candidate status values
 gl_status(proposed).
@@ -63,7 +63,7 @@ gl_outcome_type(governance_escalated).
 gl_outcome_type(provider_failed).
 gl_outcome_type(invalid_output).
 
-// β”€β”€ GL Validation Rules β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
+// "" GL Validation Rules """""""""""""""""""""""""""""""""""""""""
 
 // Check if a verdict is a valid GL verdict
 gl_valid_verdict(V) :- gl_verdict_type(V).

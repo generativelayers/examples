@@ -1,8 +1,8 @@
-// Pipeline: main → !configured → !inspected → !known_category → ?inspected
+// Pipeline: main ' !configured ' !inspected ' !known_category ' ?inspected
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -28,6 +28,11 @@ agent PatternRunner {
             "Based on the Agent beliefs, classify: apple",
             "label,confidence", "category(apple, fruit)"
         ));
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -42,36 +47,35 @@ agent PatternRunner {
         console.println("Already inspected: " + rid);
     }
 
-    // DECOMPOSITION: valid → check content. Do not mark accepted here.
+    // DECOMPOSITION: valid ' check content. Do not mark accepted here.
     // Acceptance/rejection is performed only by the known_category branches.
     rule +!inspected(string rid) : gl.valid(rid) == true {
         !known_category(rid, gl.candidate(rid), gl.field(rid, "label"));
-        ?inspected(rid);
     }
 
-    // ACHIEVEMENT: invalid → reject the concrete candidate
+    // ACHIEVEMENT: invalid ' reject the concrete candidate
     rule +!inspected(string rid) {
         gl.reject(gl.candidate(rid));
         +rejected(rid);
-        console.println("Invalid output → REJECTED");
+        console.println("Invalid output ' REJECTED");
     }
 
-    // ACHIEVEMENT: known → accept
+    // ACHIEVEMENT: known ' accept
     rule +!known_category(string rid, string cid, string label) : known(label) {
         gl.accept(cid);
         +accepted(rid);
-        console.println("Known category '" + label + "' → ACCEPTED");
+        console.println("Known category '" + label + "' ' ACCEPTED");
     }
 
-    // ACHIEVEMENT: unknown → reject
+    // ACHIEVEMENT: unknown ' reject
     rule +!known_category(string rid, string cid, string label) : ~known(label) {
         gl.reject(cid);
         +rejected(rid);
-        console.println("Unknown category '" + label + "' → REJECTED");
+        console.println("Unknown category '" + label + "' ' REJECTED");
     }
 
     // RECOVERY
-    rule -!inspected(string rid) {
+    rule -!inspected(string rid) : ~accepted(string _) & ~rejected(string _) {
         console.println("Inspection FAILED for " + rid);
     }
 }

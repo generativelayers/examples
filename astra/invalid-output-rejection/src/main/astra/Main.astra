@@ -1,8 +1,8 @@
-// Pipeline: main → !configured → !try_classify(strict) → !try_classify(relaxed) → !deliberated → accept|reject
+// Pipeline: main ' !configured ' !try_classify(strict) ' !try_classify(relaxed) ' !deliberated ' accept|reject
 agent Main {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -29,6 +29,11 @@ agent Main {
             "label,confidence", 2
         );
         !demo_complete();
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -50,7 +55,7 @@ agent Main {
         gl.use_provider(p);
     }
 
-    // DECOMPOSITION: classify = log attempt → invoke → deliberate
+    // DECOMPOSITION: classify = log attempt ' invoke ' deliberate
     rule +!try_classify(string prompt, string requiredCsv, int attemptNum) {
         !log_attempt(attemptNum, requiredCsv);
         !deliberated(
@@ -64,7 +69,7 @@ agent Main {
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
     }
 
-    // ACHIEVEMENT: valid → accept
+    // ACHIEVEMENT: valid ' accept
     rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == true {
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = true");
@@ -80,7 +85,7 @@ agent Main {
         console.println("");
     }
 
-    // ACHIEVEMENT: invalid → reject (fail-closed)
+    // ACHIEVEMENT: invalid ' reject (fail-closed)
     rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == false {
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
@@ -89,17 +94,17 @@ agent Main {
         +rejected(gl.candidate(rid), gl.outcome(rid));
         -+attempt(attemptNum);
 
-        console.println("[ATTEMPT " + attemptNum + "]   REJECTED — " + gl.outcome(rid));
+        console.println("[ATTEMPT " + attemptNum + "]   REJECTED " " + gl.outcome(rid));
         console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
         console.println("");
     }
 
-    // RECOVERY
-    rule -!try_classify(string prompt, string requiredCsv, int attemptNum) {
+    // RECOVERY: only fire when pipeline never completed (attempt still at 0)
+    rule -!try_classify(string prompt, string requiredCsv, int attemptNum) : attempt(0) {
         console.println("[ATTEMPT " + attemptNum + "] Classification FAILED");
     }
 
-    rule -!deliberated(string rid, int attemptNum) {
+    rule -!deliberated(string rid, int attemptNum) : attempt(0) {
         console.println("[ATTEMPT " + attemptNum + "] Deliberation FAILED");
     }
 }

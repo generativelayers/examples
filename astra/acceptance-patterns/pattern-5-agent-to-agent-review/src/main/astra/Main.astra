@@ -1,11 +1,10 @@
 /**
- * Pattern 5: Agent-to-Agent Review — ASTRA (Launcher)
+ * Pattern 5: Agent-to-Agent Review " ASTRA (Launcher)
  *
  * Creates the reviewer and runner agents.
  */
 agent Main {
     module Console console;
-    module astra.lang.System S;
     module System S;
 
     rule +!main(list args) {

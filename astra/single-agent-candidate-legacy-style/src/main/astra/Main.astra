@@ -1,6 +1,6 @@
-// Pipeline: main → !banner → !classified(food) → !invoked → !deliberated → accept|reject
+// Pipeline: main ' !banner ' !classified(food) ' !invoked ' !deliberated ' accept|reject
 /**
- * Single Agent Candidate — Legacy style (ASTRA).
+ * Single Agent Candidate " Legacy style (ASTRA).
  *
  * Uses direct gl.configure() / gl.use_provider() calls
  * as shown on https://www.generativelayers.com/providers.html
@@ -8,7 +8,7 @@
 agent Main {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula classified(string, string, string);
@@ -26,6 +26,11 @@ agent Main {
         gl.configure("model", "gpt-oss-120b");
         gl.use_provider("cerebras");
         !classified("apple");
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -44,7 +49,7 @@ agent Main {
             "label,confidence"));
     }
 
-    // DECOMPOSITION: bind rid once → log → deliberate
+    // DECOMPOSITION: bind rid once ' log ' deliberate
     rule +!invoked(string rid) {
         !log_invocation(rid);
         !deliberated(rid);
@@ -60,19 +65,19 @@ agent Main {
         console.println("[AGENT] Already deliberated: " + rid);
     }
 
-    // DECOMPOSITION: valid + admissible → accept + trace
+    // DECOMPOSITION: valid + admissible ' accept + trace
     rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == true {
         !accepted_candidate(rid, gl.candidate(rid));
         !print_trace(rid);
     }
 
-    // DECOMPOSITION: valid but not admissible → reject + trace
+    // DECOMPOSITION: valid but not admissible ' reject + trace
     rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == false {
         !rejected_candidate(gl.candidate(rid), rid);
         !print_trace(rid);
     }
 
-    // DECOMPOSITION: invalid → reject + trace
+    // DECOMPOSITION: invalid ' reject + trace
     rule +!deliberated(string rid) : gl.valid(rid) == false {
         !rejected_candidate("", rid);
         !print_trace(rid);
@@ -108,16 +113,16 @@ agent Main {
         console.println("=== Demo Complete ===");
     }
 
-    // RECOVERY
-    rule -!classified(string foodItem) {
+    // RECOVERY: only fire when no candidate was accepted (genuine failure)
+    rule -!classified(string foodItem) : ~accepted(string _) {
         console.println("[AGENT] Classification FAILED for " + foodItem);
     }
 
-    rule -!invoked(string rid) {
+    rule -!invoked(string rid) : ~accepted(string _) {
         console.println("[AGENT] Invocation handling FAILED for " + rid);
     }
 
-    rule -!deliberated(string rid) {
+    rule -!deliberated(string rid) : ~accepted(string _) {
         console.println("[AGENT] Deliberation FAILED for " + rid);
     }
 }

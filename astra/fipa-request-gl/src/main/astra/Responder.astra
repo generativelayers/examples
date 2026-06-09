@@ -1,8 +1,8 @@
-// Pipeline: @message(request) → !configured → !generated → !deliberated → send(inform) → ?generation_complete
+// Pipeline: @message(request) ' !configured ' !generated ' !deliberated ' send(inform) ' ?generation_complete
 agent Responder extends GLOntology {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types responder_types {
         formula setting(string, string);
@@ -17,14 +17,14 @@ agent Responder extends GLOntology {
     // DOMAIN MODEL
     inference generation_complete(string rid, "SUCCESS") :- accepted(rid);
 
-    // DELIBERATION: incoming FIPA request → adopt response goal
+    // DELIBERATION: incoming FIPA request ' adopt response goal
     rule @message(request, string sender,
                   gl_generate_request(string goalId, string affordance,
                                        string prompt, string requiredFields)) {
         !responded(sender, goalId, affordance, prompt, requiredFields);
     }
 
-    // DECOMPOSITION: respond = log → configure → generate
+    // DECOMPOSITION: respond = log ' configure ' generate
     rule +!responded(string sender, string goalId, string affordance,
                      string prompt, string requiredFields) {
         !log_request_received(sender, goalId, affordance, prompt);
@@ -57,7 +57,7 @@ agent Responder extends GLOntology {
         !invoked(gl.invoke("responder", goalId, "llm.answer", affordance, prompt, requiredFields), sender);
     }
 
-    // DECOMPOSITION: bind rid once → log → deliberate
+    // DECOMPOSITION: bind rid once ' log ' deliberate
     rule +!invoked(string rid, string sender) {
         !log_invocation_result(rid);
         !deliberated(rid, gl.candidate(rid), sender);
@@ -69,7 +69,7 @@ agent Responder extends GLOntology {
         console.println("[Responder] outcome   = " + gl.outcome(rid));
     }
 
-    // ACHIEVEMENT: valid → accept + send inform
+    // ACHIEVEMENT: valid ' accept + send inform
     rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == true {
         console.println("[Responder] Generated:");
         console.println("[Responder]   label      = " + gl.field(rid, "label"));
@@ -84,7 +84,7 @@ agent Responder extends GLOntology {
         console.println("[Responder] Sent valid response to " + sender);
     }
 
-    // ACHIEVEMENT: invalid → reject + send failure inform
+    // ACHIEVEMENT: invalid ' reject + send failure inform
     rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == false {
         if (cid ~= "") {
             gl.reject(cid);

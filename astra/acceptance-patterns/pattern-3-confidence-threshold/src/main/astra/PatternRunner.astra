@@ -1,7 +1,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -22,6 +22,11 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured(true);
         !classified("apple");
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -52,7 +57,6 @@ agent PatternRunner {
         gl.accept(cid);
         +accepted(rid);
         +confidence_tier(rid, "high");
-        ?assessed(rid);
         console.println("High confidence - ACCEPTED");
     }
 
@@ -60,18 +64,16 @@ agent PatternRunner {
         gl.reject(cid);
         +rejected(rid);
         +confidence_tier(rid, "low");
-        ?assessed(rid);
         console.println("Low confidence - REJECTED");
     }
 
     rule +!assess_confidence(string rid, string cid, string tier) {
         +escalated(rid);
         +confidence_tier(rid, tier);
-        ?assessed(rid);
         console.println("Confidence tier " + tier + " - ESCALATING");
     }
 
-    rule -!assessed(string rid) {
+    rule -!assessed(string rid) : ~accepted(string _) & ~rejected(string _) & ~escalated(string _) {
         console.println("Assessment FAILED for " + rid);
     }
 }

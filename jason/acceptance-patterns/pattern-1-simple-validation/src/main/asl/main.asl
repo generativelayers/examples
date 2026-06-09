@@ -1,6 +1,6 @@
-// Pipeline: start → !configured → !validated → ?validated
+// Pipeline: start > !configured > !validated > ?validated
 /**
- * Pattern 1: Simple Validation — Jason
+ * Pattern 1: Simple Validation - Jason
  *
  * The simplest governance pattern: accept valid output, reject invalid.
  * Demonstrates the fundamental valid/invalid context-guard branching.
@@ -36,7 +36,7 @@ validated(Rid) :- rejected(Rid).
    :  validated(Rid)
    <- .println("Already validated: ", Rid).
 
-// ACHIEVEMENT: valid → accept, verify
+// ACHIEVEMENT: valid > accept, verify
 +!validated(Rid)
    :  gl.valid(Rid, true)
    <- gl.candidate(Rid, Cid);
@@ -47,12 +47,12 @@ validated(Rid) :- rejected(Rid).
       ?validated(Rid);
       .println("ACCEPTED: ", Label).
 
-// ACHIEVEMENT: invalid → reject the concrete candidate
+// ACHIEVEMENT: invalid > reject the concrete candidate
 +!validated(Rid)
    <- gl.candidate(Rid, Cid);
       gl.reject(Cid);
       +rejected(Rid);
-      .println("Invalid output → REJECTED").
+      .println("Invalid output > REJECTED").
 
 // RECOVERY
 -!validated(Rid)

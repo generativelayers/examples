@@ -1,7 +1,7 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
+    module System S;
 
     types governance {
         formula setting(string, string);
@@ -23,6 +23,11 @@ agent PatternRunner {
     rule +!main(list args) {
         !configured(true);
         !consistent(gl.ask("agent1", "classify", "Classify: apple"));
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
@@ -64,7 +69,7 @@ agent PatternRunner {
         console.println("No prior belief - NEW KNOWLEDGE");
     }
 
-    rule -!consistent(string rid) {
+    rule -!consistent(string rid) : ~confirmed(string _) & ~rejected(string _) & ~adopted_new(string _) {
         console.println("Consistency check FAILED for " + rid);
     }
 }

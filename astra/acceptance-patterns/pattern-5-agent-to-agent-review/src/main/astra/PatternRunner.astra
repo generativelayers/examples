@@ -1,11 +1,11 @@
 /**
- * Pattern 5: Agent-to-Agent Review — Runner Agent
+ * Pattern 5: Agent-to-Agent Review - Runner Agent
  *
  * Classifies an item, sends result to a Reviewer peer,
  * and waits for the peer's verdict via message passing.
  *
  * Principles used:
- *   - Decomposition Plans (main → configure → classify → review)
+ *   - Decomposition Plans (start > configure > classify > review)
  *   - Means-End Reasoning (how to achieve review)
  *   - Reactive Plans      (handle incoming messages)
  *   - Recovery Plans      (handle failures)
@@ -14,7 +14,6 @@
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
-    module astra.lang.System S;
     module System S;
 
     types review_types {
@@ -28,29 +27,37 @@ agent PatternRunner {
 
     initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
+    // Sub-agents use initial !start() (not +!main)
+    initial !start();
+
     // DOMAIN MODEL
     inference reviewed(string cid) :- peer_approved(cid);
 
-    // ── DECOMPOSITION: main → configure → review ──
-    rule +!main(list args) {
+    // DECOMPOSITION: start > configure > review
+    rule +!start() {
         !configured(true);
-        !reviewed(gl.ask("agent1", "classify", "Classify: tomato. Return a label field."));
+        !reviewed(gl.invoke("agent1", "classify", "llm.answer", "CLASSIFY", "Classify: tomato. Return a label field.", "label"));
+        !shutdown();
+    }
+
+    // ACHIEVEMENT: clean exit (actions only)
+    rule +!shutdown() {
         S.exit();
     }
 
-    // ── ACHIEVEMENT: configure provider ──
+    // ACHIEVEMENT: configure provider
     rule +!configured(boolean x) :
             setting("model", string m) & setting("provider", string p) {
         gl.configure("model", m);
         gl.use_provider(p);
     }
 
-    // ── SERENDIPITY: already reviewed ──
+    // SERENDIPITY: already reviewed
     rule +!reviewed(string rid) : reviewed(rid) {
         console.println("[Runner] Already reviewed: " + rid);
     }
 
-    // ── MEANS-END: valid → send to reviewer and wait ──
+    // MEANS-END: valid > send to reviewer and wait
     rule +!reviewed(string rid) : gl.valid(rid) == true {
         string label = gl.field(rid, "label");
         string cid = gl.candidate(rid);
@@ -58,29 +65,28 @@ agent PatternRunner {
         send(request, "reviewer", review_request(label, cid));
         // Wait for peer verdict via belief event (30s timeout)
         wait(peer_approved(cid), 30000);
-        ?reviewed(cid);
     }
 
-    // ── MEANS-END: invalid output → skip ──
+    // MEANS-END: invalid output > skip
     rule +!reviewed(string rid) {
-        console.println("[Runner] Invalid output → SKIPPED");
+        console.println("[Runner] Invalid output - SKIPPED");
     }
 
-    // ── REACTIVE: peer approved → adopt belief and accept ──
+    // REACTIVE: peer approved > adopt belief and accept
     rule @message(inform, string sender, review_approved(string cid)) {
         +peer_approved(cid);
         gl.accept(cid);
-        console.println("[Runner] Peer approved → ACCEPTED");
+        console.println("[Runner] Peer approved - ACCEPTED");
     }
 
-    // ── REACTIVE: peer rejected → reject ──
+    // REACTIVE: peer rejected > reject
     rule @message(inform, string sender, review_rejected(string cid, string reason)) {
         gl.reject(cid);
-        console.println("[Runner] Peer rejected: " + reason + " → REJECTED");
+        console.println("[Runner] Peer rejected: " + reason + " - REJECTED");
     }
 
-    // ── RECOVERY ──
-    rule -!reviewed(string rid) {
+    // RECOVERY
+    rule -!reviewed(string rid) : ~peer_approved(string _) {
         console.println("[Runner] Review FAILED for " + rid);
     }
 }
