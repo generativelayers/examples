@@ -4,11 +4,6 @@
  *
  * The simplest governance pattern: accept valid output, reject invalid.
  * Demonstrates the fundamental valid/invalid context-guard branching.
- *
- * NOTE: In JaCaMo, GL operations (valid, field, candidate, accept, reject)
- * are CArtAgO artifact operations - they MUST be called in plan bodies,
- * not in context guards. valid() binds its result; branching is done
- * by passing the bound value to a subgoal.
  */
 
 // setting("model", "gpt-oss-120b"). setting("provider", "cerebras").

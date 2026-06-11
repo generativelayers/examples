@@ -1,3 +1,15 @@
+// Pipeline: start > !configured > !refined > !checked > !updated > !accepted_final
+/**
+ * Pattern 8: Iterative Refinement - Jason
+ *
+ * Generate, check, refine, and accept only the final validated
+ * candidate. Free-text outputs use the framework's text field.
+ */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 refined(Rid) :- accepted_final(true).

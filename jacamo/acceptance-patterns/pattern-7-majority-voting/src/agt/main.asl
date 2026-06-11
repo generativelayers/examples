@@ -1,3 +1,11 @@
+// Pipeline: start > !artifact_ready > !vote_cast(1..3) > !consensus_reached > !tallied
+/**
+ * Pattern 7: Majority Voting - JaCaMo
+ *
+ * Collect multiple candidate votes and accept the concrete
+ * candidates that form a majority.
+ */
+
 consensus_reached(true) :- consensus_label(_).
 
 !start.

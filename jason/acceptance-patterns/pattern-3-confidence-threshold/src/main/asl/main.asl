@@ -1,3 +1,15 @@
+// Pipeline: start > !configured > !classified > !assessed > !assess_confidence
+/**
+ * Pattern 3: Confidence Tier - Jason
+ *
+ * Use a categorical confidence tier: high accepts, low rejects,
+ * and medium/unknown escalates.
+ */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 assessed(Rid) :- accepted(Rid).

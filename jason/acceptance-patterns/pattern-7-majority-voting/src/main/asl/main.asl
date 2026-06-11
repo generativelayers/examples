@@ -1,3 +1,15 @@
+// Pipeline: start > !votes_collected > !vote_cast(1..3) > !consensus_reached > !tallied
+/**
+ * Pattern 7: Majority Voting - Jason
+ *
+ * Collect multiple candidate votes and accept the concrete
+ * candidates that form a majority.
+ */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("provider1", "cerebras"). setting("model1", "gpt-oss-120b").
 setting("provider1", "cerebras"). setting("model1", "gpt-oss-120b").
 setting("provider2", "cerebras"). setting("model2", "gpt-oss-120b").
 setting("provider3", "cerebras"). setting("model3", "gpt-oss-120b").

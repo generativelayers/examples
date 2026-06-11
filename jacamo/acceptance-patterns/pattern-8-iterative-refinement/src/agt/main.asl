@@ -1,3 +1,12 @@
+// Pipeline: start > !artifact_ready > !configured > !refined > !checked > !updated > !accepted_final
+/**
+ * Pattern 8: Iterative Refinement - JaCaMo
+ *
+ * Generate, check, refine, and accept only the final validated
+ * candidate. Free-text outputs use the framework's text field.
+ */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 refined(Rid) :- accepted_final(true).

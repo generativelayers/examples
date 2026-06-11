@@ -1,3 +1,12 @@
+// Pipeline: start > !artifact_ready > !configured > !assessed > !assess_confidence
+/**
+ * Pattern 3: Confidence Tier - JaCaMo
+ *
+ * Use a categorical confidence tier: high accepts, low rejects,
+ * and medium/unknown escalates.
+ */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 assessed(Rid) :- accepted(Rid).

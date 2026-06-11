@@ -1,4 +1,10 @@
-// Pipeline: main ' !configured ' !validated ' ?validated
+// Pipeline: main > !configured > !validated > ?validated
+/**
+ * Pattern 1: Simple Validation - ASTRA
+ *
+ * The simplest governance pattern: accept valid output, reject invalid.
+ * Demonstrates the fundamental valid/invalid context-guard branching.
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;

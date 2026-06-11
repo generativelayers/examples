@@ -1,15 +1,9 @@
+// Pipeline: main > !vote_cast(1..3) > !consensus_reached
 /**
- * Pattern 7: Majority Voting
+ * Pattern 7: Majority Voting - ASTRA
  *
- * Three LLM calls independently classify the same input.
- * If at least two agree on the label, consensus is reached.
- *
- * Principles used:
- *   - Deliberation Plans  (main ' goal adoption)
- *   - Means-End Reasoning (how to achieve each goal)
- *   - Decomposition Plans (goal ' subgoals only)
- *   - Serendipity Plans   (goal already satisfied)
- *   - Domain Modelling    (inference rules for consensus)
+ * Collect multiple candidate votes and accept the concrete
+ * candidates that form a majority.
  */
 agent PatternRunner {
     module gl.astra.GL gl;

@@ -1,3 +1,12 @@
+// Pipeline: start > !artifact_ready > !configured_primary > !verified > !cross_checked > !labels_match
+/**
+ * Pattern 4: Cross-LLM Verification - JaCaMo
+ *
+ * Use a primary provider and a verifier provider; accept only
+ * when both candidates agree.
+ */
+
+// setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
 setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
 setting("reviewer_provider", "cerebras"). setting("reviewer_model", "gpt-oss-120b").
 attempt_count(0).

@@ -1,3 +1,10 @@
+// Pipeline: main > !configured > !consistent > !belief_checked
+/**
+ * Pattern 6: Belief Consistency - ASTRA
+ *
+ * Compare the LLM candidate with existing beliefs. Confirm matches,
+ * reject contradictions, adopt new facts only when no prior belief exists.
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;

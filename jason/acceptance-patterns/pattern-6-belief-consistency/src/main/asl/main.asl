@@ -1,3 +1,15 @@
+// Pipeline: start > !configured > !consistent > !belief_checked
+/**
+ * Pattern 6: Belief Consistency - Jason
+ *
+ * Compare the LLM candidate with existing beliefs. Confirm matches,
+ * reject contradictions, adopt new facts only when no prior belief exists.
+ */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 category("apple", "fruit"). category("carrot", "vegetable").
 

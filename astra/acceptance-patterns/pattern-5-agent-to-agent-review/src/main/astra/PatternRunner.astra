@@ -1,15 +1,9 @@
+// Pipeline: start > !configured > !reviewed > send(reviewer) > wait > ?reviewed
 /**
- * Pattern 5: Agent-to-Agent Review - Runner Agent
+ * Pattern 5: Agent-to-Agent Review - ASTRA
  *
- * Classifies an item, sends result to a Reviewer peer,
- * and waits for the peer's verdict via message passing.
- *
- * Principles used:
- *   - Decomposition Plans (start > configure > classify > review)
- *   - Means-End Reasoning (how to achieve review)
- *   - Reactive Plans      (handle incoming messages)
- *   - Recovery Plans      (handle failures)
- *   - Domain Modelling    (inference rules)
+ * A generating agent asks a reviewer agent before accepting
+ * the candidate.
  */
 agent PatternRunner {
     module gl.astra.GL gl;

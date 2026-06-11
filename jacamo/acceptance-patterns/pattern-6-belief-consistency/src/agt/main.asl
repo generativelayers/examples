@@ -1,3 +1,12 @@
+// Pipeline: start > !artifact_ready > !configured > !consistent > !belief_checked
+/**
+ * Pattern 6: Belief Consistency - JaCaMo
+ *
+ * Compare the LLM candidate with existing beliefs. Confirm matches,
+ * reject contradictions, adopt new facts only when no prior belief exists.
+ */
+
+// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 category("apple", "fruit"). category("carrot", "vegetable").
 

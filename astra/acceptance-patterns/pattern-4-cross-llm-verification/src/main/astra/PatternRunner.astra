@@ -1,15 +1,9 @@
+// Pipeline: main > !configured_primary > !classified > !verified > !cross_checked
 /**
- * Pattern 4: Cross-LLM Verification
+ * Pattern 4: Cross-LLM Verification - ASTRA
  *
- * Two LLMs independently classify the same input.
- * If their labels agree, the candidate is accepted.
- *
- * Principles used:
- *   - Deliberation Plans  (main ' goal adoption)
- *   - Means-End Reasoning (how to achieve each goal)
- *   - Serendipity Plans   (goal already satisfied)
- *   - Recovery Plans      (handle failures)
- *   - Domain Modelling    (inference rules)
+ * Use a primary provider and a verifier provider; accept only
+ * when both candidates agree.
  */
 agent PatternRunner {
     module gl.astra.GL gl;

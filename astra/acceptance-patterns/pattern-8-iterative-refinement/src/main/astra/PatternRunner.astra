@@ -1,15 +1,9 @@
+// Pipeline: main > !configured > !refined > !checked > !updated > !accepted_final
 /**
- * Pattern 8: Iterative Refinement
+ * Pattern 8: Iterative Refinement - ASTRA
  *
- * Three-stage pipeline: draft ' check ' revise.
- * Each stage is a separate LLM call; the final output is accepted.
- *
- * Principles used:
- *   - Decomposition Plans (pipeline as goal decomposition)
- *   - Means-End Reasoning (how to achieve each stage)
- *   - Serendipity Plans   (goal already satisfied)
- *   - Recovery Plans      (handle failures)
- *   - Domain Modelling    (inference rules)
+ * Generate, check, refine, and accept only the final validated
+ * candidate. Free-text outputs use the framework's text field.
  */
 agent PatternRunner {
     module gl.astra.GL gl;

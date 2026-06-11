@@ -1,3 +1,10 @@
+// Pipeline: main > !configured > !classified > !assessed > !assess_confidence
+/**
+ * Pattern 3: Confidence Tier - ASTRA
+ *
+ * Use a categorical confidence tier: high accepts, low rejects,
+ * and medium/unknown escalates.
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;

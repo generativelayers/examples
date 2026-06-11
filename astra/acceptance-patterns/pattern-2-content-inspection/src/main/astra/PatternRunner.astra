@@ -1,4 +1,10 @@
-// Pipeline: main ' !configured ' !inspected ' !known_category ' ?inspected
+// Pipeline: main > !configured > !inspected > !known_category > ?inspected
+/**
+ * Pattern 2: Content Inspection - ASTRA
+ *
+ * After validation, inspects the LLM output against the agent's
+ * own knowledge base. Accepts only if the label is a known category.
+ */
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;

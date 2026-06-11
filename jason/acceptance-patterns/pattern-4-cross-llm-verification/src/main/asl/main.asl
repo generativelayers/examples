@@ -1,3 +1,15 @@
+// Pipeline: start > !configured_primary > !verified > !cross_checked > !labels_match
+/**
+ * Pattern 4: Cross-LLM Verification - Jason
+ *
+ * Use a primary provider and a verifier provider; accept only
+ * when both candidates agree.
+ */
+
+// Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
+//   See: https://github.com/generativelayers/examples/tree/main/jason/shared
+
+// setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
 setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
 setting("verifier_provider", "cerebras"). setting("verifier_model", "gpt-oss-120b").
 attempt_count(0).
