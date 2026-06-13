@@ -1,10 +1,11 @@
-// Pipeline: main ' !agents_created ' S.createAgent(responder, requester)
+// Pipeline: main > !agents_created > S.createAgent(responder, requester)
 agent Main {
     module Console console;
     module System S;
 
     types orchestration {
         formula agents_created(boolean);
+        formula completed(boolean);
     }
 
     // DECOMPOSITION: main only adopts subgoals
@@ -27,10 +28,11 @@ agent Main {
         console.println("[Main] Requester agent created.");
         console.println("[Main] Agents are running. FIPA Request flow in progress...");
         console.println("");
+        +completed(true);
     }
 
     // RECOVERY
-    rule -!agents_created(boolean x) {
+    rule -!agents_created(boolean x) : ~completed(true) {
         console.println("[Main] Agent creation FAILED");
     }
 }

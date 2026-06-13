@@ -1,18 +1,15 @@
-// Pipeline: main ' !configured ' !classified(food) ' !deliberated ' accept|reject ' ?classified
+// Pipeline: main > !classified(food) > !deliberated > accept|reject > ?classified
 agent Main {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula classified(string, string, string);
         formula accepted(string);
         formula rejected(string, string);
     }
-
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
     // DOMAIN MODEL
     inference classified(string item, string label, string conf) :-
@@ -21,7 +18,7 @@ agent Main {
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         !banner();
-        !configured(true);
+        +binding(gl.bind("agent_a", "groq", "llama-3.3-70b-versatile", ""));
         !classified("apple");
         !shutdown();
     }
@@ -35,54 +32,24 @@ agent Main {
     rule +!banner() {
         console.println("=== Generative Layer Single Agent Candidate Demo ===");
         console.println("");
-        console.println("[Layer] Available providers: " + gl.providers());
-    }
-
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
     // DECOMPOSITION: classify = invoke + deliberate
-    rule +!classified(string foodItem) {
-        !invoked(gl.invoke(
-            "agent_a", "classify_food", "llm.answer", "ANSWER",
+    rule +!classified(string foodItem) : binding(string bid) {
+        !deliberated(gl.call(bid, "classify_food", "llm.answer", "ANSWER",
             "Classify the food item '" + foodItem + "'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
-            "label,confidence"));
+            "label,confidence", ""));
     }
 
-    // DECOMPOSITION: bind rid once ' log ' deliberate
-    rule +!invoked(string rid) {
-        !log_invocation(rid);
-        !deliberated(rid);
-    }
-
-    // ACHIEVEMENT: log invocation result
-    rule +!log_invocation(string rid) {
-        console.println("[Layer] resultId  = " + rid);
-    }
-
-    // SERENDIPITY: already accepted
-    rule +!deliberated(string rid) : accepted(rid) {
-        console.println("[AGENT] Already deliberated: " + rid);
-    }
-
-    // DECOMPOSITION: valid + admissible ' accept + trace
-    rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == true {
+    // DECOMPOSITION: handle deliberation based on outcome
+    rule +!deliberated(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
         !accepted_candidate(rid, gl.candidate(rid));
         !print_trace(rid);
     }
 
-    // DECOMPOSITION: valid but not admissible ' reject + trace
-    rule +!deliberated(string rid) : gl.valid(rid) == true & gl.admissible(gl.candidate(rid)) == false {
+    rule +!deliberated(string rid) {
         !rejected_candidate(gl.candidate(rid), rid);
-        !print_trace(rid);
-    }
-
-    // DECOMPOSITION: invalid ' reject + trace
-    rule +!deliberated(string rid) : gl.valid(rid) == false {
-        !rejected_candidate("", rid);
         !print_trace(rid);
     }
 
@@ -90,39 +57,35 @@ agent Main {
     rule +!accepted_candidate(string rid, string cid) {
         console.println("");
         console.println("[AGENT] Candidate is valid and admissible.");
-        console.println("[AGENT]   label      = " + gl.field(rid, "label"));
-        console.println("[AGENT]   confidence = " + gl.field(rid, "confidence"));
-        gl.accept(cid);
+        console.println("[AGENT]   label      = " + gl.get(cid, "label"));
+        console.println("[AGENT]   confidence = " + gl.get(cid, "confidence"));
+        gl.accept(cid, "admissible output");
         +accepted(cid);
-        +classified("food", gl.field(rid, "label"), gl.field(rid, "confidence"));
+        +classified("food", gl.get(cid, "label"), gl.get(cid, "confidence"));
         console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
     }
 
     // ACHIEVEMENT: reject (actions only)
     rule +!rejected_candidate(string cid, string rid) {
         if (cid ~= "") {
-            gl.reject(cid);
+            gl.reject(cid, "failed validation/deliberation");
         }
-        +rejected(cid, gl.outcome(rid));
+        +rejected(cid, gl.decide(cid));
         console.println("");
         console.println("[AGENT] Candidate REJECTED.");
-        console.println("[AGENT]   outcome = " + gl.outcome(rid));
+        console.println("[AGENT]   outcome = " + gl.decide(cid));
     }
 
     // ACHIEVEMENT: print trace (actions only)
     rule +!print_trace(string rid) {
         console.println("");
-        console.println("[TRACE] traceId = " + gl.trace(rid));
+        console.println("[TRACE] traceId = " + gl.explain(rid));
         console.println("=== Demo Complete ===");
     }
 
     // RECOVERY: only fire when no candidate was accepted (genuine failure)
     rule -!classified(string foodItem) : ~accepted(string _) {
         console.println("[AGENT] Classification FAILED for " + foodItem);
-    }
-
-    rule -!invoked(string rid) : ~accepted(string _) {
-        console.println("[AGENT] Invocation handling FAILED for " + rid);
     }
 
     rule -!deliberated(string rid) : ~accepted(string _) {

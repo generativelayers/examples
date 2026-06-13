@@ -1,25 +1,23 @@
-// Pipeline: main ' !configured ' !try_classify(strict) ' !try_classify(relaxed) ' !deliberated ' accept|reject
+// Pipeline: main > !configured > !try_classify(strict) > !try_classify(relaxed) > !deliberated > accept|reject
 agent Main {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula accepted(string);
         formula rejected(string, string);
         formula classification(string, string, string);
         formula attempt(int);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial attempt(0);
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
         !banner();
-        !configured(true);
+        +binding(gl.bind("agent_a", "groq", "llama-3.3-70b-versatile", ""));
         !try_classify(
             "Classify 'banana' as food. Return label, confidence, and category.",
             "label,confidence,category", 1
@@ -49,17 +47,11 @@ agent Main {
         console.println("=== Demo Complete ===");
     }
 
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
-    }
-
-    // DECOMPOSITION: classify = log attempt ' invoke ' deliberate
-    rule +!try_classify(string prompt, string requiredCsv, int attemptNum) {
+    // DECOMPOSITION: classify = log attempt > call > deliberate
+    rule +!try_classify(string prompt, string requiredCsv, int attemptNum) : binding(string bid) {
         !log_attempt(attemptNum, requiredCsv);
         !deliberated(
-            gl.invoke("agent_a", "classify_food", "llm.answer", "ANSWER", prompt, requiredCsv),
+            gl.call(bid, "classify_food", "llm.answer", "ANSWER", prompt, requiredCsv, ""),
             attemptNum);
     }
 
@@ -69,32 +61,43 @@ agent Main {
         console.println("[ATTEMPT " + attemptNum + "]   required = " + requiredCsv);
     }
 
-    // ACHIEVEMENT: valid ' accept
-    rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == true {
-        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
+    // DECOMPOSITION: handle deliberation based on outcome
+    rule +!deliberated(string rid, int attemptNum) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !accepted_candidate(rid, gl.candidate(rid), attemptNum);
+    }
+
+    rule +!deliberated(string rid, int attemptNum) {
+        !rejected_candidate(gl.candidate(rid), rid, attemptNum);
+    }
+
+    // ACHIEVEMENT: accept (actions only)
+    rule +!accepted_candidate(string rid, string cid, int attemptNum) {
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.decide(cid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = true");
 
-        gl.accept(gl.candidate(rid));
-        +accepted(gl.candidate(rid));
-        +classification(gl.field(rid, "label"), gl.field(rid, "confidence"), "attempt_" + attemptNum);
+        gl.accept(cid, "admissible output");
+        +accepted(cid);
+        +classification(gl.get(cid, "label"), gl.get(cid, "confidence"), "attempt_" + attemptNum);
         -+attempt(attemptNum);
 
         console.println("[ATTEMPT " + attemptNum + "]   ACCEPTED");
-        console.println("[ATTEMPT " + attemptNum + "]     label      = " + gl.field(rid, "label"));
-        console.println("[ATTEMPT " + attemptNum + "]     confidence = " + gl.field(rid, "confidence"));
+        console.println("[ATTEMPT " + attemptNum + "]     label      = " + gl.get(cid, "label"));
+        console.println("[ATTEMPT " + attemptNum + "]     confidence = " + gl.get(cid, "confidence"));
         console.println("");
     }
 
-    // ACHIEVEMENT: invalid ' reject (fail-closed)
-    rule +!deliberated(string rid, int attemptNum) : gl.valid(rid) == false {
-        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.outcome(rid));
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid, int attemptNum) {
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.decide(cid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
 
-        gl.reject(gl.candidate(rid));
-        +rejected(gl.candidate(rid), gl.outcome(rid));
+        if (cid ~= "") {
+            gl.reject(cid, "failed validation/deliberation");
+        }
+        +rejected(cid, gl.decide(cid));
         -+attempt(attemptNum);
 
-        console.println("[ATTEMPT " + attemptNum + "]   REJECTED " " + gl.outcome(rid));
+        console.println("[ATTEMPT " + attemptNum + "]   REJECTED: " + gl.decide(cid));
         console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
         console.println("");
     }

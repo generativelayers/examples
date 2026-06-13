@@ -1,35 +1,41 @@
-// Pipeline: @message(request) ' !configured ' !generated ' !deliberated ' send(inform) ' ?generation_complete
+// Pipeline: @message(request) > !responded > !generated > !deliberated > send(inform) > ?generation_complete
 agent Responder extends GLOntology {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types responder_types {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula generation_complete(string, string);
         formula accepted(string);
         formula rejected(string, string);
+        formula responded(string);
+        formula generated(string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
+    initial !init();
 
     // DOMAIN MODEL
     inference generation_complete(string rid, "SUCCESS") :- accepted(rid);
 
-    // DELIBERATION: incoming FIPA request ' adopt response goal
+    // ACHIEVEMENT: init
+    rule +!init() {
+        +binding(gl.bind("responder", "groq", "llama-3.3-70b-versatile", ""));
+    }
+
+    // DELIBERATION: incoming FIPA request -> adopt response goal
     rule @message(request, string sender,
                   gl_generate_request(string goalId, string affordance,
                                        string prompt, string requiredFields)) {
         !responded(sender, goalId, affordance, prompt, requiredFields);
     }
 
-    // DECOMPOSITION: respond = log ' configure ' generate
+    // DECOMPOSITION: respond = log -> generate
     rule +!responded(string sender, string goalId, string affordance,
                      string prompt, string requiredFields) {
         !log_request_received(sender, goalId, affordance, prompt);
-        !configured(true);
         !generated(sender, goalId, affordance, prompt, requiredFields);
+        +responded(goalId);
     }
 
     // ACHIEVEMENT: log incoming request
@@ -40,76 +46,60 @@ agent Responder extends GLOntology {
         console.println("[Responder]   prompt     = " + prompt);
     }
 
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
-    }
-
-    // SERENDIPITY
-    rule +!configured(boolean x) : configured(true) {
-        // already configured
-    }
-
     // DECOMPOSITION: generate = invoke + deliberate
     rule +!generated(string sender, string goalId, string affordance,
-                     string prompt, string requiredFields) {
-        !invoked(gl.invoke("responder", goalId, "llm.answer", affordance, prompt, requiredFields), sender);
+                     string prompt, string requiredFields) : binding(string bid) {
+        !deliberated(gl.call(bid, goalId, "llm.answer", affordance, prompt, requiredFields, ""), sender);
+        +generated(goalId);
     }
 
-    // DECOMPOSITION: bind rid once ' log ' deliberate
-    rule +!invoked(string rid, string sender) {
-        !log_invocation_result(rid);
-        !deliberated(rid, gl.candidate(rid), sender);
+    // DECOMPOSITION: handle deliberation based on outcome
+    rule +!deliberated(string rid, string sender) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !accepted_candidate(rid, gl.candidate(rid), sender);
     }
 
-    // ACHIEVEMENT: log invocation result
-    rule +!log_invocation_result(string rid) {
-        console.println("[Responder] resultId  = " + rid);
-        console.println("[Responder] outcome   = " + gl.outcome(rid));
+    rule +!deliberated(string rid, string sender) {
+        !rejected_candidate(rid, gl.candidate(rid), sender);
     }
 
-    // ACHIEVEMENT: valid ' accept + send inform
-    rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == true {
+    // ACHIEVEMENT: valid -> accept + send inform
+    rule +!accepted_candidate(string rid, string cid, string sender) {
         console.println("[Responder] Generated:");
-        console.println("[Responder]   label      = " + gl.field(rid, "label"));
-        console.println("[Responder]   confidence = " + gl.field(rid, "confidence"));
-        if (cid ~= "") {
-            gl.accept(cid);
-        }
+        console.println("[Responder]   label      = " + gl.get(cid, "label"));
+        console.println("[Responder]   confidence = " + gl.get(cid, "confidence"));
+        
+        gl.accept(cid, "admissible output");
         +accepted(rid);
         +generation_complete(rid, "SUCCESS");
+        
         send(inform, sender,
-             gl_generate_response(rid, cid, gl.outcome(rid), true));
+             gl_generate_response(rid, cid, "SUCCESS", true));
         console.println("[Responder] Sent valid response to " + sender);
     }
 
-    // ACHIEVEMENT: invalid ' reject + send failure inform
-    rule +!deliberated(string rid, string cid, string sender) : gl.valid(rid) == false {
+    // ACHIEVEMENT: invalid -> reject + send failure inform
+    rule +!rejected_candidate(string rid, string cid, string sender) {
         if (cid ~= "") {
-            gl.reject(cid);
+            gl.reject(cid, "failed validation/deliberation");
         }
-        +rejected(rid, gl.outcome(rid));
+        +rejected(rid, gl.decide(cid));
         +generation_complete(rid, "FAILED");
+        
         send(inform, sender,
-             gl_generate_response(rid, cid, gl.outcome(rid), false));
+             gl_generate_response(rid, cid, gl.decide(cid), false));
         console.println("[Responder] Sent failure response to " + sender);
     }
 
     // RECOVERY
     rule -!responded(string sender, string goalId, string affordance,
-                     string prompt, string requiredFields) {
+                     string prompt, string requiredFields) : ~responded(goalId) {
         console.println("[Responder] Response FAILED for " + goalId);
         send(inform, sender,
              gl_generate_response("", "", "ERROR", false));
     }
 
-    rule -!invoked(string rid, string sender) {
-        console.println("[Responder] Invocation handling FAILED for " + rid);
-    }
-
     rule -!generated(string sender, string goalId, string affordance,
-                     string prompt, string requiredFields) {
+                     string prompt, string requiredFields) : ~generated(goalId) {
         console.println("[Responder] Generation FAILED for " + goalId);
     }
 }

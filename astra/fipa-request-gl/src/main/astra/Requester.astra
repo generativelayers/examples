@@ -1,4 +1,4 @@
-// Pipeline: start ' send(request) ' +waiting ' @message(inform) ' !response_handled ' ?adopted|rejected
+// Pipeline: start > send(request) > +waiting > @message(inform) > !response_handled > ?adopted|rejected
 agent Requester extends GLOntology {
     module Console console;
     module System S;
@@ -8,6 +8,7 @@ agent Requester extends GLOntology {
         formula response_handled(string);
         formula adopted(string, string, string);
         formula rejected_response(string);
+        formula request_sent(string);
     }
 
     // DOMAIN MODEL
@@ -27,13 +28,14 @@ agent Requester extends GLOntology {
         console.println("");
         send(request, "responder",
              gl_generate_request(goalId, "ANSWER",
-                 "Classify 'mango' as a food type. Return label and confidence.",
-                 "label,confidence"));
+                  "Classify 'mango' as a food type. Return label and confidence.",
+                  "label,confidence"));
         +waiting_for_response(goalId);
         console.println("[Requester] Request sent. Waiting for response...");
+        +request_sent(goalId);
     }
 
-    // REACTIVE: valid response ' adopt result
+    // REACTIVE: valid response -> adopt result
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :
@@ -47,9 +49,10 @@ agent Requester extends GLOntology {
         -waiting_for_response("classify_food");
         console.println("[Requester] Adopting classification from peer.");
         console.println("=== FIPA Request + GL Demo Complete ===");
+        S.exit();
     }
 
-    // REACTIVE: invalid response ' reject
+    // REACTIVE: invalid response -> reject
     rule @message(inform, string sender,
                   gl_generate_response(string resultId, string candidateId,
                                         string outcome, boolean isValid)) :
@@ -65,7 +68,7 @@ agent Requester extends GLOntology {
     }
 
     // RECOVERY
-    rule -!request_sent(string goalId) {
+    rule -!request_sent(string goalId) : ~request_sent(goalId) {
         console.println("[Requester] Failed to send request for " + goalId);
     }
 }
