@@ -1,4 +1,12 @@
 // Pipeline: main > !agents_created > S.createAgent(responder, requester)
+/**
+ * FIPA Request + Generative Layer - ASTRA
+ *
+ * Demonstrates a multi-agent orchestration where a requester agent
+ * sends a FIPA request to a responder agent to classify an item,
+ * and the responder leverages the Generative Layer to perform
+ * the classification and return a validated response.
+ */
 agent Main {
     module Console console;
     module System S;

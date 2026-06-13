@@ -1,4 +1,11 @@
 // Pipeline: main > !classified(food) > !deliberated > accept|reject > ?classified
+/**
+ * Single Agent Candidate - ASTRA
+ *
+ * Demonstrates a simple agent executing an LLM goal, inspecting the
+ * generated candidate, validating it against an expected schema,
+ * and accepting the candidate to adopt the corresponding domain beliefs.
+ */
 agent Main {
     module gl.astra.GL gl;
     module Console console;

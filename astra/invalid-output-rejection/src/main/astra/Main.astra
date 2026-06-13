@@ -1,4 +1,11 @@
 // Pipeline: main > !configured > !try_classify(strict) > !try_classify(relaxed) > !deliberated > accept|reject
+/**
+ * Invalid Output Rejection - ASTRA
+ *
+ * Demonstrates the Generative Layer's ability to reject candidates
+ * that fail validation (e.g. missing required fields or incorrect schema),
+ * failing closed without adopting unvalidated beliefs.
+ */
 agent Main {
     module gl.astra.GL gl;
     module Console console;

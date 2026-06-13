@@ -1,9 +1,10 @@
-// Pipeline: main ' !banner ' !classified(food) ' !invoked ' !deliberated ' accept|reject
+// Pipeline: main > !banner > !classified(food) > !invoked > !deliberated > accept|reject
 /**
- * Single Agent Candidate " Legacy style (ASTRA).
+ * Single Agent Candidate (Legacy Style) - ASTRA
  *
- * Uses direct gl.configure() / gl.use_provider() calls
- * as shown on https://www.generativelayers.com/providers.html
+ * Demonstrates the legacy approach to candidate generation, using
+ * global gl.configure and gl.use_provider, and invoking the LLM via
+ * gl.invoke instead of the agent-scoped bindings.
  */
 agent Main {
     module gl.astra.GL gl;
