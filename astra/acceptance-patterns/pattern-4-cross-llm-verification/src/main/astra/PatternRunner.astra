@@ -1,119 +1,135 @@
-// Pipeline: main > !configured_primary > !classified > !verified > !cross_checked
-/**
- * Pattern 4: Cross-LLM Verification - ASTRA
- *
- * Use a primary provider and a verifier provider; accept only
- * when both candidates agree.
- */
+// Pipeline: main > !classified > !verified > !cross_check > !evaluate_verifier > !match_labels
+// Pattern 4: Cross-LLM Verification - ASTRA
+//
+// Use a primary provider and a verifier provider; accept only
+// when both candidates agree.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula primary_setting(string, string);
-        formula verifier_setting(string, string);
+        formula primary_binding(string);
+        formula verifier_binding(string);
         formula verified(string);
+        formula accepted(string);
         formula rejected(string);
     }
 
-    initial primary_setting("model", "gpt-oss-120b"),
-            primary_setting("provider", "cerebras");
-    initial verifier_setting("model", "gpt-oss-120b"),
-            verifier_setting("provider", "cerebras");
+    inference verified(string cid) :- accepted(cid);
+    inference verified(string cid) :- rejected(cid);
 
-    // "" DECOMPOSITION: main ' configure ' classify ""
     rule +!main(list args) {
-        !configured_primary(true);
+        !banner();
+        +primary_binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        +verifier_binding(gl.bind("verifier1", "groq", "llama-3.3-70b-versatile", ""));
         !classified("apple");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    // "" ACHIEVEMENT: configure primary provider ""
-    rule +!configured_primary(boolean x) :
-            primary_setting("model", string m) &
-            primary_setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 4: Cross-LLM Verification ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    // "" ACHIEVEMENT: configure verifier provider ""
-    rule +!configured_verifier(boolean x) :
-            verifier_setting("model", string m) &
-            verifier_setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // DECOMPOSITION: classify = call + inspect
+    rule +!classified(string item) : primary_binding(string bid) & verifier_binding(string vbid) {
+        !verified(gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return only a label field.", "label", ""), item, bid, vbid);
     }
 
-    // "" DECOMPOSITION: classify ' verify ""
-    rule +!classified(string item) {
-        string rid = gl.ask("agent1", "classify", "Classify: " + item);
-        !verified(rid);
+    // SERENDIPITY: already verified
+    rule +!verified(string rid, string item, string bid, string vbid) : verified(gl.candidate(rid)) {
+        console.println("[AGENT] Already verified: " + rid);
     }
 
-    // "" SERENDIPITY: already verified ""
-    rule +!verified(string rid) : verified(rid) {
-        console.println("Already verified: " + rid);
+    // DECOMPOSITION: admissible > check verifier output
+    rule +!verified(string rid, string item, string bid, string vbid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !cross_check(rid, gl.candidate(rid), gl.get(gl.candidate(rid), "label"), item, bid, vbid);
     }
 
-    // "" MEANS-END: check output and cross-verify ""
-    rule +!verified(string rid) {
-        boolean isValid = gl.valid(rid);
-        if (isValid) {
-            string primaryLabel = gl.field(rid, "label");
-            string primaryCid = gl.candidate(rid);
-            console.println("[Primary] label = " + primaryLabel);
-            !cross_checked(rid, primaryLabel, primaryCid);
-            +verified(rid);
-        } else {
-            gl.reject(gl.candidate(rid));
-            +rejected(rid);
-            console.println("Invalid primary output ' REJECTED");
-        }
+    // DECOMPOSITION: not admissible > reject
+    rule +!verified(string rid, string item, string bid, string vbid) {
+        !rejected_primary(gl.candidate(rid), rid);
     }
 
-    // "" DECOMPOSITION: cross-check with verifier ""
-    rule +!cross_checked(string rid, string primaryLabel, string primaryCid) {
-        !configured_verifier(true);
-        string vrid = gl.ask("agent1", "verify",
-            "Classify this item and return only a label field: apple");
-        boolean vValid = gl.valid(vrid);
-        if (vValid) {
-            string verifierLabel = gl.field(vrid, "label");
-            if (verifierLabel == primaryLabel) {
-                string verifierCid = gl.candidate(vrid);
-                gl.accept(primaryCid);
-                gl.accept(verifierCid);
-                +verified(rid);
-                console.println("[Verifier] label = " + verifierLabel + " ' MATCH ' ACCEPTED");
-            } else {
-                gl.reject(primaryCid);
-                gl.reject(gl.candidate(vrid));
-                +rejected(rid);
-                console.println("[Verifier] label = " + verifierLabel + "  " + primaryLabel + " ' REJECTED");
-            }
-        } else {
-            gl.reject(primaryCid);
-            +rejected(rid);
-            console.println("Verifier output invalid ' REJECTED");
-        }
+    // DECOMPOSITION: cross-check with verifier
+    rule +!cross_check(string rid, string primaryCid, string primaryLabel, string item, string bid, string vbid) {
+        !evaluate_verifier(rid, primaryCid, primaryLabel,
+            gl.call(vbid, "verify", "llm.answer", "ANSWER",
+                "Classify this item and return only a label field: " + item, "label", ""),
+            item);
     }
 
-    // "" RECOVERY ""
-    rule -!verified(string rid) : ~verified(string _) & ~rejected(string _) {
+    // DECOMPOSITION: verifier admissible > compare labels
+    rule +!evaluate_verifier(string rid, string primaryCid, string primaryLabel, string vrid, string item) :
+            gl.decide(gl.candidate(vrid)) == "ADMISSIBLE" {
+        !match_labels(rid, primaryCid, primaryLabel, vrid, gl.candidate(vrid), gl.get(gl.candidate(vrid), "label"));
+    }
+
+    // DECOMPOSITION: verifier not admissible > reject
+    rule +!evaluate_verifier(string rid, string primaryCid, string primaryLabel, string vrid, string item) {
+        !rejected_verifier(primaryCid, gl.candidate(vrid), rid, vrid);
+    }
+
+    // ACHIEVEMENT: labels match > accept both
+    rule +!match_labels(string rid, string primaryCid, string primaryLabel, string vrid, string verifierCid, string verifierLabel) : primaryLabel == verifierLabel {
+        gl.accept(primaryCid, "cross-LLM match: " + primaryLabel);
+        gl.accept(verifierCid, "cross-LLM match: " + verifierLabel);
+        +accepted(primaryCid);
+        +accepted(verifierCid);
+        console.println("[Verifier] label = " + verifierLabel + " - MATCH - ACCEPTED");
+        !print_trace(rid);
+        !print_trace(vrid);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: labels mismatch > reject both
+    rule +!match_labels(string rid, string primaryCid, string primaryLabel, string vrid, string verifierCid, string verifierLabel) {
+        gl.reject(primaryCid, "cross-LLM mismatch: " + primaryLabel + " vs " + verifierLabel);
+        gl.reject(verifierCid, "cross-LLM mismatch: " + primaryLabel + " vs " + verifierLabel);
+        +rejected(primaryCid);
+        +rejected(verifierCid);
+        console.println("[Verifier] label = " + verifierLabel + " != " + primaryLabel + " - REJECTED");
+        !print_trace(rid);
+        !print_trace(vrid);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: reject primary only (actions only)
+    rule +!rejected_primary(string cid, string rid) {
+        gl.reject(cid, "primary validation failed");
+        +rejected(cid);
+        console.println("Invalid primary output - REJECTED");
+        !print_trace(rid);
+    }
+
+    // ACHIEVEMENT: reject both due to verifier invalid (actions only)
+    rule +!rejected_verifier(string primaryCid, string verifierCid, string rid, string vrid) {
+        gl.reject(primaryCid, "verifier validation failed");
+        gl.reject(verifierCid, "verifier validation failed");
+        +rejected(primaryCid);
+        +rejected(verifierCid);
+        console.println("Verifier output invalid - REJECTED");
+        !print_trace(rid);
+        !print_trace(vrid);
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+    }
+
+    // RECOVERY
+    rule -!verified(string rid, string item, string bid, string vbid) : ~accepted(string _) & ~rejected(string _) {
         console.println("Verification FAILED for " + rid);
-    }
-
-    rule -!cross_checked(string rid, string label, string cid) : ~verified(string _) & ~rejected(string _) {
-        console.println("Cross-check FAILED for " + rid);
-    }
-
-    rule -!classified(string item) : ~verified(string _) & ~rejected(string _) {
-        console.println("Classification FAILED for " + item);
     }
 }
