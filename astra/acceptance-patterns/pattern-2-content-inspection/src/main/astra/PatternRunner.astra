@@ -24,11 +24,21 @@ agent PatternRunner {
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        console.println("=== Pattern 2: Content Inspection ===");
-        console.println("");
-        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !banner();
+        !setup();
         !classified("apple");
         !shutdown();
+    }
+
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 2: Content Inspection ===");
+        console.println("");
+    }
+
+    // ACHIEVEMENT: setup binding
+    rule +!setup() {
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
     }
 
     // ACHIEVEMENT: clean exit
