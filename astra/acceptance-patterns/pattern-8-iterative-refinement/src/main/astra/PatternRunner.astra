@@ -1,4 +1,4 @@
-// Pipeline: main > !configured > !refined > !checked > !updated > !accepted_final
+// Pipeline: main > !drafted > !checked > !revised > !accepted_final
 /**
  * Pattern 8: Iterative Refinement - ASTRA
  *
@@ -11,65 +11,92 @@ agent PatternRunner {
     module System S;
 
     types governance {
-        formula setting(string, string);
+        formula binding(string);
         formula refined(string);
-        formula draft_text(string, string);
-        formula check_notes(string, string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
-
-    // "" DECOMPOSITION: main ' configure ' refine ""
+    // DECOMPOSITION: main -> setup -> draft
     rule +!main(list args) {
-        !configured(true);
-        !refined(gl.ask("agent1", "step1",
-            "Write a short paragraph about photosynthesis."));
+        !banner();
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !drafted("Write a short paragraph about photosynthesis.");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    // "" ACHIEVEMENT: configure provider ""
-    rule +!configured(boolean x) :
-            setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 8: Iterative Refinement ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    // "" SERENDIPITY: already refined ""
-    rule +!refined(string rid) : refined(rid) {
-        console.println("Already refined: " + rid);
+    // DECOMPOSITION: start draft
+    rule +!drafted(string prompt) : binding(string bid) {
+        !checked(gl.call(bid, "draft", "llm.answer", "ANSWER", prompt, "answer", ""));
     }
 
-    // "" MEANS-END: draft ' check ' revise ' accept ""
-    rule +!refined(string draftRid) {
-        string draftText = gl.field(draftRid, "answer");
-        console.println("[Draft] " + draftText);
-
-        // Check
-        string checkRid = gl.ask("agent1", "step2",
-            "Review this text and suggest improvements: " + draftText);
-        string notes = gl.field(checkRid, "answer");
-        console.println("[Check] " + notes);
-
-        // Revise
-        string finalRid = gl.ask("agent1", "step3",
-            "Revise this text: " + draftText + " Based on: " + notes);
-        string revised = gl.field(finalRid, "answer");
-        console.println("[Revised] " + revised);
-
-        // Accept the final candidate
-        string cid = gl.candidate(finalRid);
-        gl.accept(cid);
-        +refined(draftRid);
-        console.println("Final candidate ' ACCEPTED");
+    // DECOMPOSITION: check draft
+    rule +!checked(string draftRid) : binding(string bid) {
+        !print_draft(draftRid);
+        !revised(draftRid, gl.call(bid, "check", "llm.answer", "ANSWER",
+            "Review this text and suggest improvements: " + gl.get(gl.candidate(draftRid), "answer"), "answer", ""));
     }
 
-    // "" RECOVERY ""
-    rule -!refined(string rid) : ~refined(string _) {
-        console.println("Pipeline FAILED for " + rid);
+    // ACHIEVEMENT: print draft
+    rule +!print_draft(string draftRid) {
+        console.println("[Draft] " + gl.get(gl.candidate(draftRid), "answer"));
+    }
+
+    // DECOMPOSITION: revise draft
+    rule +!revised(string draftRid, string checkRid) : binding(string bid) {
+        !print_check(checkRid);
+        !accepted_final(gl.call(bid, "revise", "llm.answer", "ANSWER",
+            "Revise this text: " + gl.get(gl.candidate(draftRid), "answer") + " Based on: " + gl.get(gl.candidate(checkRid), "answer"), "answer", ""));
+    }
+
+    // ACHIEVEMENT: print check
+    rule +!print_check(string checkRid) {
+        console.println("[Check] " + gl.get(gl.candidate(checkRid), "answer"));
+    }
+
+    // DECOMPOSITION: accept final and print trace
+    rule +!accepted_final(string finalRid) {
+        !print_revised(finalRid);
+        !accept_candidate(gl.candidate(finalRid), finalRid);
+        !print_trace(finalRid);
+        !print_complete();
+    }
+
+    // ACHIEVEMENT: print revised
+    rule +!print_revised(string finalRid) {
+        console.println("[Revised] " + gl.get(gl.candidate(finalRid), "answer"));
+    }
+
+    // ACHIEVEMENT: accept candidate
+    rule +!accept_candidate(string cid, string finalRid) {
+        gl.accept(cid, "final refined text");
+        +refined(finalRid);
+        console.println("Final candidate - ACCEPTED");
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+    }
+
+    // ACHIEVEMENT: print complete
+    rule +!print_complete() {
+        console.println("=== Demo Complete ===");
+    }
+
+    // RECOVERY
+    rule -!drafted(string prompt) : ~refined(string _) {
+        console.println("Pipeline FAILED");
     }
 }

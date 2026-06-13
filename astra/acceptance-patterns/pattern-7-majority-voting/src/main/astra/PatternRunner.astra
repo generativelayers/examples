@@ -1,94 +1,151 @@
-// Pipeline: main > !vote_cast(1..3) > !consensus_reached
-/**
- * Pattern 7: Majority Voting - ASTRA
- *
- * Collect multiple candidate votes and accept the concrete
- * candidates that form a majority.
- */
+// Pipeline: main > !vote_cast(1..3) > !vote_recorded > !consensus_reached
+// Pattern 7: Majority Voting - ASTRA
+//
+// Collect multiple candidate votes and accept the concrete
+// candidates that form a majority.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
+        formula binding(string);
         formula vote(int, string, string, string);
         formula consensus_label(string);
         formula consensus_reached(boolean);
+        formula no_consensus(boolean);
     }
 
     // DOMAIN MODEL
     inference consensus_reached(true) :- consensus_label(string _);
+    inference consensus_reached(true) :- no_consensus(true);
 
-    // "" DECOMPOSITION: main ' cast 3 votes ' check consensus ""
     rule +!main(list args) {
-        // Vote 1: Cerebras
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-        !vote_cast(1);
-        // Vote 2: Cerebras
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-        !vote_cast(2);
-        // Vote 3: Cerebras
-        gl.configure("model", "gpt-oss-120b");
-        gl.use_provider("cerebras");
-        !vote_cast(3);
-        // Tally
-        !consensus_reached(true);
+        !banner();
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !classified("tomato");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    // "" ACHIEVEMENT: cast a vote, store result + candidate ""
-    rule +!vote_cast(int id) {
-        string rid = gl.ask("agent1", "classify", "Classify: tomato. Return label field.");
-        string cid = gl.candidate(rid);
-        string label = gl.field(rid, "label");
-        +vote(id, rid, cid, label);
-        console.println("[Vote " + id + "] label = " + label);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 7: Majority Voting ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    // "" SERENDIPITY: already have consensus ""
-    rule +!consensus_reached(boolean x) : consensus_reached(true) &
-            consensus_label(string winner) {
+    // DECOMPOSITION: classify = cast 3 votes + check consensus
+    rule +!classified(string item) : binding(string bid) {
+        !vote_cast(1, bid, item);
+        !vote_cast(2, bid, item);
+        !vote_cast(3, bid, item);
+        !consensus_reached(true);
+    }
+
+    // DECOMPOSITION: cast vote
+    rule +!vote_cast(int id, string bid, string item) {
+        !vote_recorded(id, gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return only a label field.", "label", ""));
+    }
+
+    // DECOMPOSITION: vote valid > record
+    rule +!vote_recorded(int id, string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        +vote(id, rid, gl.candidate(rid), gl.get(gl.candidate(rid), "label"));
+        console.println("[Vote " + id + "] label = " + gl.get(gl.candidate(rid), "label"));
+    }
+
+    // DECOMPOSITION: vote invalid > record failure
+    rule +!vote_recorded(int id, string rid) {
+        +vote(id, rid, gl.candidate(rid), "INVALID");
+        console.println("[Vote " + id + "] output invalid");
+    }
+
+    // SERENDIPITY: consensus already reached
+    rule +!consensus_reached(boolean x) : consensus_reached(true) & consensus_label(string winner) {
         console.println("Already have consensus: " + winner);
     }
 
-    // "" MEANS-END: tally the 3 votes ""
+    // ACHIEVEMENT: tally votes 1 & 2 match
+    rule +!consensus_reached(boolean x) :
+            vote(1, string r1, string c1, string l1) &
+            vote(2, string r2, string c2, string l2) &
+            vote(3, string r3, string c3, string l3) &
+            l1 == l2 & l1 ~= "INVALID" {
+        gl.accept(c1, "majority vote");
+        gl.accept(c2, "majority vote");
+        +consensus_label(l1);
+        console.println("Majority (votes 1 & 2): '" + l1 + "' - ACCEPTED");
+        !print_trace(r1);
+        !print_trace(r2);
+        !print_trace(r3);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: tally votes 1 & 3 match
+    rule +!consensus_reached(boolean x) :
+            vote(1, string r1, string c1, string l1) &
+            vote(2, string r2, string c2, string l2) &
+            vote(3, string r3, string c3, string l3) &
+            l1 == l3 & l1 ~= "INVALID" {
+        gl.accept(c1, "majority vote");
+        gl.accept(c3, "majority vote");
+        +consensus_label(l1);
+        console.println("Majority (votes 1 & 3): '" + l1 + "' - ACCEPTED");
+        !print_trace(r1);
+        !print_trace(r2);
+        !print_trace(r3);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: tally votes 2 & 3 match
+    rule +!consensus_reached(boolean x) :
+            vote(1, string r1, string c1, string l1) &
+            vote(2, string r2, string c2, string l2) &
+            vote(3, string r3, string c3, string l3) &
+            l2 == l3 & l2 ~= "INVALID" {
+        gl.accept(c2, "majority vote");
+        gl.accept(c3, "majority vote");
+        +consensus_label(l2);
+        console.println("Majority (votes 2 & 3): '" + l2 + "' - ACCEPTED");
+        !print_trace(r1);
+        !print_trace(r2);
+        !print_trace(r3);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: no majority consensus
     rule +!consensus_reached(boolean x) :
             vote(1, string r1, string c1, string l1) &
             vote(2, string r2, string c2, string l2) &
             vote(3, string r3, string c3, string l3) {
-        if (l1 == l2) {
-            gl.accept(c1);
-            gl.accept(c2);
-            +consensus_label(l1);
-            console.println("Majority (votes 1 & 2): '" + l1 + "' ' ACCEPTED");
-        } else if (l1 == l3) {
-            gl.accept(c1);
-            gl.accept(c3);
-            +consensus_label(l1);
-            console.println("Majority (votes 1 & 3): '" + l1 + "' ' ACCEPTED");
-        } else if (l2 == l3) {
-            gl.accept(c2);
-            gl.accept(c3);
-            +consensus_label(l2);
-            console.println("Majority (votes 2 & 3): '" + l2 + "' ' ACCEPTED");
-        } else {
-            console.println("No majority ' NO CONSENSUS");
-        }
+        gl.reject(c1, "no majority consensus");
+        gl.reject(c2, "no majority consensus");
+        gl.reject(c3, "no majority consensus");
+        +no_consensus(true);
+        console.println("No majority - NO CONSENSUS");
+        !print_trace(r1);
+        !print_trace(r2);
+        !print_trace(r3);
+        console.println("=== Demo Complete ===");
     }
 
-    // "" RECOVERY ""
-    rule -!consensus_reached(boolean x) : ~consensus_label(string _) {
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+    }
+
+    // RECOVERY
+    rule -!consensus_reached(boolean x) : ~consensus_label(string _) & ~no_consensus(true) {
         console.println("Consensus FAILED");
     }
 
-    rule -!vote_cast(int id) : ~vote(id, string _, string _, string _) {
+    rule -!vote_recorded(int id, string rid) : ~vote(id, string _, string _, string _) {
         console.println("Vote " + id + " FAILED");
     }
 }
