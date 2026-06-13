@@ -54,18 +54,14 @@ agent PatternRunner {
 
     // DECOMPOSITION: admissible > check confidence tier
     rule +!assessed(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
-        string cid = gl.candidate(rid);
-        !assess_confidence(rid, cid, gl.get(cid, "confidence_tier"));
+        !assess_confidence(rid, gl.candidate(rid), gl.get(gl.candidate(rid), "confidence_tier"));
+        !print_trace(rid);
     }
 
     // DECOMPOSITION: not admissible > reject
     rule +!assessed(string rid) {
-        string cid = gl.candidate(rid);
-        gl.reject(cid, "failed validation");
-        +rejected(cid);
-        console.println("Invalid output - REJECTED");
-        console.println("");
-        console.println("[TRACE] " + gl.explain(rid));
+        !rejected_candidate(gl.candidate(rid), rid);
+        !print_trace(rid);
     }
 
     // ACHIEVEMENT: high confidence > accept
@@ -75,8 +71,6 @@ agent PatternRunner {
         +confidence_tier(cid, "high");
         console.println("High confidence - ACCEPTED");
         console.println("  label = " + gl.get(cid, "label"));
-        console.println("");
-        console.println("[TRACE] " + gl.explain(rid));
         console.println("=== Demo Complete ===");
     }
 
@@ -86,8 +80,6 @@ agent PatternRunner {
         +rejected(cid);
         +confidence_tier(cid, "low");
         console.println("Low confidence - REJECTED");
-        console.println("");
-        console.println("[TRACE] " + gl.explain(rid));
         console.println("=== Demo Complete ===");
     }
 
@@ -96,9 +88,20 @@ agent PatternRunner {
         +escalated(cid);
         +confidence_tier(cid, tier);
         console.println("Confidence tier '" + tier + "' - ESCALATING");
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid) {
+        gl.reject(cid, "failed validation");
+        +rejected(cid);
+        console.println("Invalid output - REJECTED");
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
         console.println("");
         console.println("[TRACE] " + gl.explain(rid));
-        console.println("=== Demo Complete ===");
     }
 
     // RECOVERY
