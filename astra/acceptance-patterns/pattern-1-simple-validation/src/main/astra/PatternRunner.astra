@@ -1,63 +1,101 @@
-// Pipeline: main > !configured > !validated > ?validated
-/**
- * Pattern 1: Simple Validation - ASTRA
- *
- * The simplest governance pattern: accept valid output, reject invalid.
- * Demonstrates the fundamental valid/invalid context-guard branching.
- */
+// Pipeline: main > !classified(food) > !deliberated > accept|reject
+// Pattern 1: Simple Validation - ASTRA (GL v2)
+//
+// The simplest governance pattern: accept valid output, reject invalid.
+// Demonstrates the fundamental decide() context-guard branching.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula validated(string);
         formula accepted(string);
         formula rejected(string);
-        formula classified(string);
+        formula classified(string, string, string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
-
-    inference validated(string rid) :- accepted(rid);
-    inference validated(string rid) :- rejected(rid);
+    inference validated(string cid) :- accepted(cid);
+    inference validated(string cid) :- rejected(cid);
 
     rule +!main(list args) {
-        !configured(true);
-        !validated(gl.ask("agent1", "classify", "Classify: apple"));
+        !banner();
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !classified("apple");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 1: Simple Validation (GL v2) ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    rule +!validated(string rid) : validated(rid) {
-        console.println("Already validated: " + rid);
+    // DECOMPOSITION: classify = call + deliberate
+    rule +!classified(string foodItem) : binding(string bid) {
+        !deliberated(gl.call(bid, "classify_food", "llm.answer", "ANSWER",
+            "Classify the food item '" + foodItem + "'. Return label and confidence.",
+            "label,confidence", ""));
     }
 
-    rule +!validated(string rid) : gl.valid(rid) == true {
-        gl.accept(gl.candidate(rid));
-        +accepted(rid);
-        +classified(gl.field(rid, "label"));
-        console.println("ACCEPTED: " + gl.field(rid, "label"));
+    // SERENDIPITY: already deliberated
+    rule +!deliberated(string rid) : validated(gl.candidate(rid)) {
+        console.println("[AGENT] Already deliberated: " + rid);
     }
 
-    rule +!validated(string rid) {
-        gl.reject(gl.candidate(rid));
-        +rejected(rid);
-        console.println("Invalid output ' REJECTED");
+    // DECOMPOSITION: admissible > accept + trace
+    rule +!deliberated(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !accepted_candidate(rid, gl.candidate(rid));
+        !print_trace(rid);
     }
 
-    rule -!validated(string rid) : ~accepted(string _) & ~rejected(string _) {
-        console.println("Validation FAILED for " + rid);
+    // DECOMPOSITION: not admissible > reject + trace
+    rule +!deliberated(string rid) {
+        !rejected_candidate(gl.candidate(rid), rid);
+        !print_trace(rid);
+    }
+
+    // ACHIEVEMENT: accept (actions only)
+    rule +!accepted_candidate(string rid, string cid) {
+        console.println("");
+        console.println("[AGENT] Candidate is ADMISSIBLE.");
+        console.println("[AGENT]   label      = " + gl.get(cid, "label"));
+        console.println("[AGENT]   confidence = " + gl.get(cid, "confidence"));
+        gl.accept(cid, "valid classification");
+        +accepted(cid);
+        +classified("food", gl.get(cid, "label"), gl.get(cid, "confidence"));
+        console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
+    }
+
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid) {
+        gl.reject(cid, "failed validation");
+        +rejected(cid);
+        console.println("");
+        console.println("[AGENT] Candidate REJECTED.");
+        console.println("[AGENT]   reason = " + gl.explain(rid));
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
+    }
+
+    // RECOVERY: only fire when no candidate was accepted (genuine failure)
+    rule -!classified(string foodItem) : ~accepted(string _) {
+        console.println("[AGENT] Classification FAILED for " + foodItem);
+    }
+
+    rule -!deliberated(string rid) : ~accepted(string _) {
+        console.println("[AGENT] Deliberation FAILED for " + rid);
     }
 }

@@ -1,83 +1,84 @@
-// Pipeline: main > !configured > !inspected > !known_category > ?inspected
-/**
- * Pattern 2: Content Inspection - ASTRA
- *
- * After validation, inspects the LLM output against the agent's
- * own knowledge base. Accepts only if the label is a known category.
- */
+// Pipeline: main > !inspected > !known_category > ?inspected
+// Pattern 2: Content Inspection - ASTRA (GL v2)
+//
+// After validation, inspects the LLM output against the agent's
+// own knowledge base. Accepts only if the label is a known category.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula inspected(string);
         formula accepted(string);
         formula rejected(string);
         formula known(string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial known("fruit"), known("vegetable"), known("grain");
 
     // DOMAIN MODEL
-    inference inspected(string rid) :- accepted(rid);
-    inference inspected(string rid) :- rejected(rid);
+    inference inspected(string cid) :- accepted(cid);
+    inference inspected(string cid) :- rejected(cid);
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        !configured(true);
-        !inspected(gl.invoke_with_beliefs(
-            "agent1", "classify", "llm.answer", "ANSWER",
-            "Based on the Agent beliefs, classify: apple",
-            "label,confidence", "category(apple, fruit)"
-        ));
+        console.println("=== Pattern 2: Content Inspection (GL v2) ===");
+        console.println("");
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !classified("apple");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    // ACHIEVEMENT: setup
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // DECOMPOSITION: classify = call + inspect
+    rule +!classified(string item) : binding(string bid) {
+        !inspected(gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return label and confidence.",
+            "label,confidence", "category(" + item + ", fruit)"));
     }
 
-    // SERENDIPITY
-    rule +!inspected(string rid) : inspected(rid) {
+    // SERENDIPITY: already inspected
+    rule +!inspected(string rid) : inspected(gl.candidate(rid)) {
         console.println("Already inspected: " + rid);
     }
 
-    // DECOMPOSITION: valid ' check content. Do not mark accepted here.
-    // Acceptance/rejection is performed only by the known_category branches.
-    rule +!inspected(string rid) : gl.valid(rid) == true {
-        !known_category(rid, gl.candidate(rid), gl.field(rid, "label"));
+    // DECOMPOSITION: admissible > check content against knowledge base
+    rule +!inspected(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !known_category(rid, gl.candidate(rid), gl.get(gl.candidate(rid), "label"));
     }
 
-    // ACHIEVEMENT: invalid ' reject the concrete candidate
+    // ACHIEVEMENT: not admissible > reject
     rule +!inspected(string rid) {
-        gl.reject(gl.candidate(rid));
-        +rejected(rid);
-        console.println("Invalid output ' REJECTED");
+        gl.reject(gl.candidate(rid), "output not admissible");
+        +rejected(gl.candidate(rid));
+        console.println("Invalid output - REJECTED");
     }
 
-    // ACHIEVEMENT: known ' accept
+    // ACHIEVEMENT: known category > accept
     rule +!known_category(string rid, string cid, string label) : known(label) {
-        gl.accept(cid);
-        +accepted(rid);
-        console.println("Known category '" + label + "' ' ACCEPTED");
+        gl.accept(cid, "known category: " + label);
+        +accepted(cid);
+        console.println("Known category '" + label + "' - ACCEPTED");
+        console.println("  confidence = " + gl.get(cid, "confidence"));
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
     }
 
-    // ACHIEVEMENT: unknown ' reject
+    // ACHIEVEMENT: unknown category > reject
     rule +!known_category(string rid, string cid, string label) : ~known(label) {
-        gl.reject(cid);
-        +rejected(rid);
-        console.println("Unknown category '" + label + "' ' REJECTED");
+        gl.reject(cid, "unknown category: " + label);
+        +rejected(cid);
+        console.println("Unknown category '" + label + "' - REJECTED");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
     }
 
     // RECOVERY
