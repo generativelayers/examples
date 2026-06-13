@@ -1,18 +1,15 @@
-// Pipeline: main > !configured > !consistent > !belief_checked
-/**
- * Pattern 6: Belief Consistency - ASTRA
- *
- * Compare the LLM candidate with existing beliefs. Confirm matches,
- * reject contradictions, adopt new facts only when no prior belief exists.
- */
+// Pipeline: main > !classified > !consistent > !belief_checked
+// Pattern 6: Belief Consistency - ASTRA
+//
+// Compare the LLM candidate with existing beliefs. Confirm matches,
+// reject contradictions, adopt new facts only when no prior belief exists.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula confirmed(string);
         formula rejected(string);
         formula adopted_new(string);
@@ -20,63 +17,96 @@ agent PatternRunner {
         formula category(string, string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
     initial category("apple", "fruit"), category("carrot", "vegetable");
 
-    inference consistent(string rid) :- confirmed(rid);
-    inference consistent(string rid) :- rejected(rid);
-    inference consistent(string rid) :- adopted_new(rid);
+    inference consistent(string cid) :- confirmed(cid);
+    inference consistent(string cid) :- rejected(cid);
+    inference consistent(string cid) :- adopted_new(cid);
 
     rule +!main(list args) {
-        !configured(true);
-        !consistent(gl.ask("agent1", "classify", "Classify: apple"));
+        !banner();
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !classified("apple");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 6: Belief Consistency ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    rule +!consistent(string rid) : consistent(rid) {
-        console.println("Already checked: " + rid);
+    // DECOMPOSITION: classify = call + deliberate
+    rule +!classified(string item) : binding(string bid) {
+        !consistent(gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return only a label field.", "label", ""), item);
     }
 
-    rule +!consistent(string rid) : gl.valid(rid) == true {
-        !belief_checked(rid, "apple", gl.field(rid, "label"), gl.candidate(rid));
+    // SERENDIPITY: already checked
+    rule +!consistent(string rid, string item) : consistent(gl.candidate(rid)) {
+        console.println("[AGENT] Already checked: " + rid);
     }
 
-    rule +!consistent(string rid) {
-        gl.reject(gl.candidate(rid));
-        +rejected(rid);
-        console.println("Invalid output - REJECTED");
+    // DECOMPOSITION: admissible > check belief consistency
+    rule +!consistent(string rid, string item) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !belief_checked(rid, gl.candidate(rid), item, gl.get(gl.candidate(rid), "label"));
     }
 
-    rule +!belief_checked(string rid, string item, string label, string cid) : category(item, label) {
-        gl.accept(cid);
-        +confirmed(rid);
+    // DECOMPOSITION: not admissible > reject
+    rule +!consistent(string rid, string item) {
+        !rejected_candidate(gl.candidate(rid), rid);
+    }
+
+    // ACHIEVEMENT: match belief > confirm
+    rule +!belief_checked(string rid, string cid, string item, string label) : category(item, label) {
+        gl.accept(cid, "matches existing belief");
+        +confirmed(cid);
         console.println("Matches belief - CONFIRMED");
+        !print_trace(rid);
+        console.println("=== Demo Complete ===");
     }
 
-    rule +!belief_checked(string rid, string item, string label, string cid) : category(item, string existing) & ~category(item, label) {
-        gl.reject(cid);
-        +rejected(rid);
-        console.println("Contradicts belief - REJECTED");
+    // ACHIEVEMENT: contradicts belief > reject
+    rule +!belief_checked(string rid, string cid, string item, string label) : category(item, string existing) & ~category(item, label) {
+        gl.reject(cid, "contradicts belief: " + existing);
+        +rejected(cid);
+        console.println("Contradicts belief - REJECTED (existing=" + existing + ", output=" + label + ")");
+        !print_trace(rid);
+        console.println("=== Demo Complete ===");
     }
 
-    rule +!belief_checked(string rid, string item, string label, string cid) : ~category(item, string any) {
-        gl.accept(cid);
+    // ACHIEVEMENT: no prior belief > adopt as new knowledge
+    rule +!belief_checked(string rid, string cid, string item, string label) : ~category(item, string any) {
+        gl.accept(cid, "no prior belief: " + label);
         +category(item, label);
-        +adopted_new(rid);
-        console.println("No prior belief - NEW KNOWLEDGE");
+        +adopted_new(cid);
+        console.println("No prior belief - NEW KNOWLEDGE ADOPTED");
+        !print_trace(rid);
+        console.println("=== Demo Complete ===");
     }
 
-    rule -!consistent(string rid) : ~confirmed(string _) & ~rejected(string _) & ~adopted_new(string _) {
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid) {
+        gl.reject(cid, "failed validation");
+        +rejected(cid);
+        console.println("Invalid output - REJECTED");
+        !print_trace(rid);
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+    }
+
+    // RECOVERY
+    rule -!consistent(string rid, string item) : ~confirmed(string _) & ~rejected(string _) & ~adopted_new(string _) {
         console.println("Consistency check FAILED for " + rid);
     }
 }
