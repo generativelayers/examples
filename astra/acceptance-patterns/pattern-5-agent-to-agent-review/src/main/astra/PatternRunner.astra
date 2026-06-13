@@ -1,86 +1,108 @@
-// Pipeline: start > !configured > !reviewed > send(reviewer) > wait > ?reviewed
-/**
- * Pattern 5: Agent-to-Agent Review - ASTRA
- *
- * A generating agent asks a reviewer agent before accepting
- * the candidate.
- */
+// Pipeline: start > !classified > !reviewed > !submit_for_review > send(reviewer) > wait > ?reviewed
+// Pattern 5: Agent-to-Agent Review - ASTRA
+//
+// A generating agent asks a reviewer agent before accepting
+// the candidate.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types review_types {
-        formula setting(string, string);
+        formula binding(string);
         formula reviewed(string);
         formula peer_approved(string);
+        formula peer_rejected(string);
         formula review_request(string, string);
         formula review_approved(string);
         formula review_rejected(string, string);
     }
-
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
 
     // Sub-agents use initial !start() (not +!main)
     initial !start();
 
     // DOMAIN MODEL
     inference reviewed(string cid) :- peer_approved(cid);
+    inference reviewed(string cid) :- peer_rejected(cid);
 
     // DECOMPOSITION: start > configure > review
     rule +!start() {
-        !configured(true);
-        !reviewed(gl.invoke("agent1", "classify", "llm.answer", "CLASSIFY", "Classify: tomato. Return a label field.", "label"));
+        console.println("[Layer] Available providers: " + gl.see());
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        !classified("tomato");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    // ACHIEVEMENT: configure provider
-    rule +!configured(boolean x) :
-            setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // DECOMPOSITION: classify = call + deliberate
+    rule +!classified(string item) : binding(string bid) {
+        !reviewed(gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return only a label field.", "label", ""));
     }
 
     // SERENDIPITY: already reviewed
-    rule +!reviewed(string rid) : reviewed(rid) {
+    rule +!reviewed(string rid) : reviewed(gl.candidate(rid)) {
         console.println("[Runner] Already reviewed: " + rid);
     }
 
-    // MEANS-END: valid > send to reviewer and wait
-    rule +!reviewed(string rid) : gl.valid(rid) == true {
-        string label = gl.field(rid, "label");
-        string cid = gl.candidate(rid);
+    // DECOMPOSITION: admissible > send to reviewer and wait
+    rule +!reviewed(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        !submit_for_review(rid, gl.candidate(rid), gl.get(gl.candidate(rid), "label"));
+    }
+
+    // DECOMPOSITION: invalid output > reject
+    rule +!reviewed(string rid) {
+        !rejected_candidate(gl.candidate(rid), rid);
+    }
+
+    // ACHIEVEMENT: submit for review (actions only)
+    rule +!submit_for_review(string rid, string cid, string label) {
         console.println("[Runner] Sending '" + label + "' to reviewer...");
         send(request, "reviewer", review_request(label, cid));
         // Wait for peer verdict via belief event (30s timeout)
         wait(peer_approved(cid), 30000);
     }
 
-    // MEANS-END: invalid output > skip
-    rule +!reviewed(string rid) {
-        console.println("[Runner] Invalid output - SKIPPED");
+    // ACHIEVEMENT: reject (actions only)
+    rule +!rejected_candidate(string cid, string rid) {
+        gl.reject(cid, "failed validation");
+        +peer_rejected(cid);
+        console.println("Invalid output - REJECTED");
+        !print_trace(rid);
     }
 
     // REACTIVE: peer approved > adopt belief and accept
     rule @message(inform, string sender, review_approved(string cid)) {
         +peer_approved(cid);
-        gl.accept(cid);
+        gl.accept(cid, "peer approved");
         console.println("[Runner] Peer approved - ACCEPTED");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(cid));
+        console.println("=== Demo Complete ===");
     }
 
     // REACTIVE: peer rejected > reject
     rule @message(inform, string sender, review_rejected(string cid, string reason)) {
-        gl.reject(cid);
+        +peer_rejected(cid);
+        gl.reject(cid, "peer rejected: " + reason);
         console.println("[Runner] Peer rejected: " + reason + " - REJECTED");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(cid));
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: print trace
+    rule +!print_trace(string rid) {
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
     }
 
     // RECOVERY
-    rule -!reviewed(string rid) : ~peer_approved(string _) {
+    rule -!reviewed(string rid) : ~peer_approved(string _) & ~peer_rejected(string _) {
         console.println("[Runner] Review FAILED for " + rid);
     }
 }
