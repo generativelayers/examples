@@ -1,18 +1,15 @@
-// Pipeline: main > !configured > !classified > !assessed > !assess_confidence
-/**
- * Pattern 3: Confidence Tier - ASTRA
- *
- * Use a categorical confidence tier: high accepts, low rejects,
- * and medium/unknown escalates.
- */
+// Pipeline: main > !classified > !assessed > !assess_confidence
+// Pattern 3: Confidence Tier - ASTRA
+//
+// Use a categorical confidence tier: high accepts, low rejects,
+// and medium/unknown escalates.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
     module System S;
 
     types governance {
-        formula setting(string, string);
-        formula configured(boolean);
+        formula binding(string);
         formula assessed(string);
         formula accepted(string);
         formula rejected(string);
@@ -20,66 +17,91 @@ agent PatternRunner {
         formula confidence_tier(string, string);
     }
 
-    initial setting("model", "gpt-oss-120b"), setting("provider", "cerebras");
-
-    inference assessed(string rid) :- accepted(rid);
-    inference assessed(string rid) :- rejected(rid);
-    inference assessed(string rid) :- escalated(rid);
+    inference assessed(string cid) :- accepted(cid);
+    inference assessed(string cid) :- rejected(cid);
+    inference assessed(string cid) :- escalated(cid);
 
     rule +!main(list args) {
-        !configured(true);
+        !banner();
+        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
         !classified("apple");
         !shutdown();
     }
 
-    // ACHIEVEMENT: clean exit (actions only)
+    // ACHIEVEMENT: clean exit
     rule +!shutdown() {
         S.exit();
     }
 
-    rule +!configured(boolean x) : setting("model", string m) & setting("provider", string p) {
-        gl.configure("model", m);
-        gl.use_provider(p);
+    // ACHIEVEMENT: display banner
+    rule +!banner() {
+        console.println("=== Pattern 3: Confidence Tier ===");
+        console.println("");
+        console.println("[Layer] Available providers: " + gl.see());
     }
 
-    rule +!classified(string item) {
-        !assessed(gl.invoke("agent1", "classify", "llm.answer", "ANSWER", "Classify: " + item + ". Return label and confidence_tier: high, medium, or low.", "label,confidence_tier"));
+    // DECOMPOSITION: classify = call + deliberate/assess
+    rule +!classified(string item) : binding(string bid) {
+        !assessed(gl.call(bid, "classify", "llm.answer", "ANSWER",
+            "Classify: " + item + ". Return label and confidence_tier: high, medium, or low.",
+            "label,confidence_tier", ""));
     }
 
-    rule +!assessed(string rid) : assessed(rid) {
-        console.println("Already assessed: " + rid);
+    // SERENDIPITY: already assessed
+    rule +!assessed(string rid) : assessed(gl.candidate(rid)) {
+        console.println("[AGENT] Already assessed: " + rid);
     }
 
-    rule +!assessed(string rid) : gl.valid(rid) == true {
-        !assess_confidence(rid, gl.candidate(rid), gl.field(rid, "confidence_tier"));
+    // DECOMPOSITION: admissible > check confidence tier
+    rule +!assessed(string rid) : gl.decide(gl.candidate(rid)) == "ADMISSIBLE" {
+        string cid = gl.candidate(rid);
+        !assess_confidence(rid, cid, gl.get(cid, "confidence_tier"));
     }
 
+    // DECOMPOSITION: not admissible > reject
     rule +!assessed(string rid) {
-        gl.reject(gl.candidate(rid));
-        +rejected(rid);
+        string cid = gl.candidate(rid);
+        gl.reject(cid, "failed validation");
+        +rejected(cid);
         console.println("Invalid output - REJECTED");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
     }
 
+    // ACHIEVEMENT: high confidence > accept
     rule +!assess_confidence(string rid, string cid, string tier) : tier == "high" {
-        gl.accept(cid);
-        +accepted(rid);
-        +confidence_tier(rid, "high");
+        gl.accept(cid, "high confidence");
+        +accepted(cid);
+        +confidence_tier(cid, "high");
         console.println("High confidence - ACCEPTED");
+        console.println("  label = " + gl.get(cid, "label"));
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
     }
 
+    // ACHIEVEMENT: low confidence > reject
     rule +!assess_confidence(string rid, string cid, string tier) : tier == "low" {
-        gl.reject(cid);
-        +rejected(rid);
-        +confidence_tier(rid, "low");
+        gl.reject(cid, "low confidence");
+        +rejected(cid);
+        +confidence_tier(cid, "low");
         console.println("Low confidence - REJECTED");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
     }
 
+    // ACHIEVEMENT: medium/other > escalate
     rule +!assess_confidence(string rid, string cid, string tier) {
-        +escalated(rid);
-        +confidence_tier(rid, tier);
-        console.println("Confidence tier " + tier + " - ESCALATING");
+        +escalated(cid);
+        +confidence_tier(cid, tier);
+        console.println("Confidence tier '" + tier + "' - ESCALATING");
+        console.println("");
+        console.println("[TRACE] " + gl.explain(rid));
+        console.println("=== Demo Complete ===");
     }
 
+    // RECOVERY
     rule -!assessed(string rid) : ~accepted(string _) & ~rejected(string _) & ~escalated(string _) {
         console.println("Assessment FAILED for " + rid);
     }

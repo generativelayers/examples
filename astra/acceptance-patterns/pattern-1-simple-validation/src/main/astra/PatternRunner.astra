@@ -1,5 +1,5 @@
 // Pipeline: main > !classified(food) > !deliberated > accept|reject
-// Pattern 1: Simple Validation - ASTRA (GL v2)
+// Pattern 1: Simple Validation - ASTRA
 //
 // The simplest governance pattern: accept valid output, reject invalid.
 // Demonstrates the fundamental decide() context-guard branching.
@@ -33,7 +33,7 @@ agent PatternRunner {
 
     // ACHIEVEMENT: display banner
     rule +!banner() {
-        console.println("=== Pattern 1: Simple Validation (GL v2) ===");
+        console.println("=== Pattern 1: Simple Validation ===");
         console.println("");
         console.println("[Layer] Available providers: " + gl.see());
     }

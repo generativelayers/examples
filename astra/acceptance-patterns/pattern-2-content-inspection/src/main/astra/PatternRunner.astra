@@ -1,5 +1,5 @@
 // Pipeline: main > !inspected > !known_category > ?inspected
-// Pattern 2: Content Inspection - ASTRA (GL v2)
+// Pattern 2: Content Inspection - ASTRA
 //
 // After validation, inspects the LLM output against the agent's
 // own knowledge base. Accepts only if the label is a known category.
@@ -24,7 +24,7 @@ agent PatternRunner {
 
     // DECOMPOSITION: main only adopts subgoals
     rule +!main(list args) {
-        console.println("=== Pattern 2: Content Inspection (GL v2) ===");
+        console.println("=== Pattern 2: Content Inspection ===");
         console.println("");
         +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
         !classified("apple");
