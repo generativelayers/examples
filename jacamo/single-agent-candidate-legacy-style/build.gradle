@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     // GL framework core (install locally first)
-    implementation group: 'gl',             name: 'core',               version: '0.1.5'
+    implementation group: 'gl',             name: 'core',               version: '0.2.0'
     // Jason + CArtAgO (JaCaMo distribution)
     implementation group: 'org.jacamo',     name: 'jacamo',             version: '1.3'
 }
