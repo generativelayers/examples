@@ -76,11 +76,17 @@ agent Main {
         console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
     }
 
-    // ACHIEVEMENT: reject (actions only)
-    rule +!rejected_candidate(string cid, string rid) {
-        if (cid ~= "") {
-            gl.reject(cid, "failed validation/deliberation");
-        }
+    // ACHIEVEMENT: reject (actions only) - candidate exists
+    rule +!rejected_candidate(string cid, string rid) : cid ~= "" {
+        gl.reject(cid, "failed validation/deliberation");
+        +rejected(cid, gl.decide(cid));
+        console.println("");
+        console.println("[AGENT] Candidate REJECTED.");
+        console.println("[AGENT]   outcome = " + gl.decide(cid));
+    }
+
+    // ACHIEVEMENT: reject (actions only) - no candidate
+    rule +!rejected_candidate(string cid, string rid) : cid == "" {
         +rejected(cid, gl.decide(cid));
         console.println("");
         console.println("[AGENT] Candidate REJECTED.");

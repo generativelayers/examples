@@ -1,4 +1,4 @@
-// Pipeline: start > !configured > !refined > !checked > !updated > !accepted_final
+// Pipeline: start > !banner > !drafted > !checked > !revised > !accepted_final
 /**
  * Pattern 8: Iterative Refinement - Jason
  *
@@ -9,70 +9,97 @@
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
 //   See: https://github.com/generativelayers/examples/tree/main/jason/shared
 
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-
-refined(Rid) :- accepted_final(true).
+refined(FinalRid) :- accepted_final(FinalRid).
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- !configured(true);
-      gl.ask("agent1", "step1", "Write short text about photosynthesis", DraftRid);
-      !refined(DraftRid);
-      .stopMAS.
+   <- !banner;
+      gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
+      +binding(Bid);
+      !drafted("Write a short paragraph about photosynthesis.");
+      !shutdown.
 
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- gl.configure("model", M);
-      gl.use_provider(P).
+// ACHIEVEMENT: clean exit
++!shutdown
+   <- .stopMAS.
 
-+!refined(Rid)
-   :  refined(Rid)
-   <- .println("Already done: ", Rid).
+// ACHIEVEMENT: display banner
++!banner
+   :  gl.see(Providers)
+   <- .println("=== Pattern 8: Iterative Refinement ===");
+      .println("");
+      .println("[Layer] Available providers: ", Providers).
 
-+!refined(DraftRid)
-   :  gl.valid(DraftRid, true)
-   <- !checked(DraftRid);
-      !updated(DraftRid);
-      !accepted_final(DraftRid);
-      ?refined(DraftRid).
+// DECOMPOSITION: draft
++!drafted(Prompt)
+   :  binding(Bid)
+   <- gl.call(Bid, "draft", "llm.answer", "ANSWER", Prompt, "answer", "", DraftRid);
+      !checked(DraftRid).
 
-+!refined(DraftRid)
-   <- gl.candidate(DraftRid, DraftCid);
-      gl.reject(DraftCid);
-      .println("First output invalid - REJECTED").
-
+// DECOMPOSITION: check
 +!checked(DraftRid)
-   :  gl.valid(DraftRid, true)
-   <- gl.field(DraftRid, "text", DraftText);
-      .concat("Check text: ", DraftText, Prompt);
-      gl.ask("agent1", "step2", Prompt, CheckRid);
-      +check_for(DraftRid, CheckRid);
-      +checked(CheckRid).
+   :  binding(Bid)
+   <- !print_draft(DraftRid);
+      gl.candidate(DraftRid, DraftCid);
+      gl.get(DraftCid, "answer", DraftText);
+      .concat("Review this text and suggest improvements: ", DraftText, Prompt);
+      gl.call(Bid, "check", "llm.answer", "ANSWER", Prompt, "answer", "", CheckRid);
+      !revised(DraftRid, CheckRid).
 
-+!checked(Rid)
-   :  checked(Rid)
-   <- .println("Already checked").
+// ACHIEVEMENT: print draft
++!print_draft(DraftRid)
+   :  gl.candidate(DraftRid, DraftCid) & gl.get(DraftCid, "answer", DraftText)
+   <- .println("[Draft] ", DraftText).
 
-+!updated(DraftRid)
-   :  check_for(DraftRid, CheckRid) & gl.valid(CheckRid, true)
-   <- gl.field(DraftRid, "text", DraftText);
-      gl.field(CheckRid, "text", CheckText);
-      .concat("Text: ", DraftText, " Notes: ", CheckText, Prompt);
-      gl.ask("agent1", "step3", Prompt, FinalRid);
-      +updated(FinalRid).
+// DECOMPOSITION: revise
++!revised(DraftRid, CheckRid)
+   :  binding(Bid)
+   <- !print_check(CheckRid);
+      gl.candidate(DraftRid, DraftCid);
+      gl.get(DraftCid, "answer", DraftText);
+      gl.candidate(CheckRid, CheckCid);
+      gl.get(CheckCid, "answer", CheckText);
+      .concat("Revise this text: ", DraftText, " Based on: ", CheckText, Prompt);
+      gl.call(Bid, "revise", "llm.answer", "ANSWER", Prompt, "answer", "", FinalRid);
+      !accepted_final(FinalRid).
 
-+!updated(Rid)
-   :  updated(Rid)
-   <- .println("Already updated").
+// ACHIEVEMENT: print check
++!print_check(CheckRid)
+   :  gl.candidate(CheckRid, CheckCid) & gl.get(CheckCid, "answer", CheckText)
+   <- .println("[Check] ", CheckText).
 
-+!accepted_final(Rid)
-   :  updated(FinalRid) & gl.valid(FinalRid, true)
-   <- gl.candidate(FinalRid, Cid);
-      gl.accept(Cid);
-      +accepted_final(true);
-      .println("Final candidate ACCEPTED").
+// DECOMPOSITION: accept final and print trace
++!accepted_final(FinalRid)
+   <- !print_revised(FinalRid);
+      gl.candidate(FinalRid, FinalCid);
+      !accept_candidate(FinalCid, FinalRid);
+      !print_trace(FinalRid);
+      !print_complete.
 
--!refined(Rid)
-   <- .println("Pipeline failed: ", Rid).
+// ACHIEVEMENT: print revised
++!print_revised(FinalRid)
+   :  gl.candidate(FinalRid, FinalCid) & gl.get(FinalCid, "answer", FinalText)
+   <- .println("[Revised] ", FinalText).
+
+// ACHIEVEMENT: accept candidate
++!accept_candidate(FinalCid, FinalRid)
+   <- gl.accept(FinalCid, "final refined text", _);
+      +accepted_final(FinalRid);
+      .println("Final candidate - ACCEPTED").
+
+// ACHIEVEMENT: print trace
++!print_trace(Rid)
+   :  gl.explain(Rid, Trace)
+   <- .println("");
+      .println("[TRACE] ", Trace).
+
+// ACHIEVEMENT: print complete
++!print_complete
+   <- .println("=== Demo Complete ===").
+
+// RECOVERY
+-!drafted(Prompt)
+   :  not accepted_final(_)
+   <- .println("Pipeline FAILED").

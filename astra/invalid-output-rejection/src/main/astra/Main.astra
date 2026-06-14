@@ -93,17 +93,24 @@ agent Main {
         console.println("");
     }
 
-    // ACHIEVEMENT: reject (actions only)
-    rule +!rejected_candidate(string cid, string rid, int attemptNum) {
+    // ACHIEVEMENT: reject (actions only) - candidate exists
+    rule +!rejected_candidate(string cid, string rid, int attemptNum) : cid ~= "" {
         console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.decide(cid));
         console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
-
-        if (cid ~= "") {
-            gl.reject(cid, "failed validation/deliberation");
-        }
+        gl.reject(cid, "failed validation/deliberation");
         +rejected(cid, gl.decide(cid));
         -+attempt(attemptNum);
+        console.println("[ATTEMPT " + attemptNum + "]   REJECTED: " + gl.decide(cid));
+        console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
+        console.println("");
+    }
 
+    // ACHIEVEMENT: reject (actions only) - no candidate
+    rule +!rejected_candidate(string cid, string rid, int attemptNum) : cid == "" {
+        console.println("[ATTEMPT " + attemptNum + "]   outcome  = " + gl.decide(cid));
+        console.println("[ATTEMPT " + attemptNum + "]   valid    = false");
+        +rejected(cid, gl.decide(cid));
+        -+attempt(attemptNum);
         console.println("[ATTEMPT " + attemptNum + "]   REJECTED: " + gl.decide(cid));
         console.println("[ATTEMPT " + attemptNum + "]   No beliefs adopted. Fail-closed.");
         console.println("");

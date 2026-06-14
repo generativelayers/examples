@@ -1,4 +1,4 @@
-// Pipeline: start > !artifact_ready > !configured > !inspected > !known_category > ?inspected
+// Pipeline: start > !banner > !setup > !classified > !inspected > !known_category
 /**
  * Pattern 2: Content Inspection - JaCaMo
  *
@@ -6,24 +6,22 @@
  * own knowledge base. Accepts only if the label is a known category.
  */
 
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 known("fruit"). known("vegetable"). known("grain").
 
 // DOMAIN MODEL
-inspected(Rid) :- accepted(Rid).
-inspected(Rid) :- rejected(Rid).
+inspected(Cid) :- accepted(Cid).
+inspected(Cid) :- rejected(Cid).
+has_candidate(Cid) :- Cid \== "".
+no_candidate(Cid)  :- Cid == "".
 
 !start.
 
 // DECOMPOSITION: start only adopts subgoals
 +!start
    <- !artifact_ready;
-      !configured(true);
-      invoke("agent1", "classify", "llm.answer", "ANSWER",
-             "Based on the Agent beliefs, classify: apple",
-             "label,confidence", Rid);
-      !inspected(Rid);
+      !banner;
+      !setup;
+      !classified("apple");
       .stopMAS.
 
 // ACHIEVEMENT: create and focus the GL artifact
@@ -31,51 +29,97 @@ inspected(Rid) :- rejected(Rid).
    <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
-// ACHIEVEMENT: setup (actions only)
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- configure("model", M);
-      use_provider(P).
+// ACHIEVEMENT: display banner
++!banner
+   <- see(Providers);
+      .println("=== Pattern 2: Content Inspection ===");
+      .println("").
 
-// SERENDIPITY
+// ACHIEVEMENT: setup
++!setup
+   <- bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
+      +binding(Bid).
+
+// DECOMPOSITION: classify = call + inspect
++!classified(Item)
+   :  binding(Bid)
+   <- .concat("Classify: ", Item, ". Return label and confidence.", Prompt);
+      .concat("category(", Item, ", fruit)", Context);
+      call(Bid, "classify", "llm.answer", "ANSWER", Prompt, "label,confidence", Context, Rid);
+      !inspected(Rid).
+
+// SERENDIPITY: already inspected
 +!inspected(Rid)
-   :  inspected(Rid)
+   :  accepted(Cid) & candidate(Rid, Cid)
    <- .println("Already inspected: ", Rid).
 
-// DECOMPOSITION: bind validity > branch
+// DECOMPOSITION: handle deliberation
 +!inspected(Rid)
-   <- valid(Rid, IsValid);
-      !inspected_branch(Rid, IsValid).
-
-// DECOMPOSITION: valid > check content. Do not mark accepted here.
-// Acceptance/rejection is performed only by the known_category branches.
-+!inspected_branch(Rid, true)
    <- candidate(Rid, Cid);
-      field(Rid, "label", Label);
-      !known_category(Rid, Cid, Label);
-      ?inspected(Rid).
+      !inspected_candidate(Rid, Cid).
 
-// ACHIEVEMENT: invalid > reject the concrete candidate
-+!inspected_branch(Rid, false)
-   <- candidate(Rid, Cid);
-      reject(Cid);
-      +rejected(Rid);
-      .println("Invalid output > REJECTED").
++!inspected_candidate(Rid, Cid)
+   :  has_candidate(Cid)
+   <- decide(Cid, Admissibility);
+      !inspected_decision(Rid, Cid, Admissibility).
 
-// ACHIEVEMENT: known > accept
++!inspected_candidate(Rid, Cid)
+   :  no_candidate(Cid)
+   <- result(Rid, Outcome);
+      !inspected_decision(Rid, Cid, Outcome).
+
+// DECOMPOSITION: route decision
++!inspected_decision(Rid, Cid, "ADMISSIBLE")
+   <- get(Cid, "label", Label);
+      !known_category(Rid, Cid, Label).
+
++!inspected_decision(Rid, Cid, Outcome)
+   <- !rejected_candidate(Cid, Rid, Outcome);
+      !print_trace(Rid).
+
+// ACHIEVEMENT: known category > accept
 +!known_category(Rid, Cid, Label)
    :  known(Label)
-   <- accept(Cid);
-      +accepted(Rid);
-      .println("Known category '", Label, "' > ACCEPTED").
+   <- get(Cid, "confidence", Confidence);
+      .concat("known category: ", Label, Reason);
+      accept(Cid, Reason, _);
+      +accepted(Cid);
+      .println("Known category '", Label, "' - ACCEPTED");
+      .println("  confidence = ", Confidence);
+      .println("");
+      !print_trace(Rid).
 
-// ACHIEVEMENT: unknown > reject
+// ACHIEVEMENT: unknown category > reject
 +!known_category(Rid, Cid, Label)
    :  not known(Label)
-   <- reject(Cid);
-      +rejected(Rid);
-      .println("Unknown category '", Label, "' > REJECTED").
+   <- .concat("unknown category: ", Label, Reason);
+      reject(Cid, Reason, _);
+      +rejected(Cid);
+      .println("Unknown category '", Label, "' - REJECTED");
+      .println("");
+      !print_trace(Rid).
+
+// ACHIEVEMENT: reject (actions only) - candidate exists
++!rejected_candidate(Cid, Rid, Outcome)
+   :  has_candidate(Cid)
+   <- reject(Cid, "output not admissible", _);
+      +rejected(Cid);
+      .println("Invalid output - REJECTED").
+
+// ACHIEVEMENT: reject (actions only) - no candidate
++!rejected_candidate(Cid, Rid, Outcome)
+   :  no_candidate(Cid)
+   <- +rejected("");
+      .println("Invocation failed, no candidate - REJECTED (outcome = ", Outcome, ")").
+
+// ACHIEVEMENT: print trace
++!print_trace(Rid)
+   <- explain(Rid, Trace);
+      .println("");
+      .println("[TRACE] ", Trace);
+      .println("=== Demo Complete ===").
 
 // RECOVERY
 -!inspected(Rid)
+   :  not accepted(_) & not rejected(_)
    <- .println("Inspection FAILED for ", Rid).

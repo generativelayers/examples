@@ -14,54 +14,53 @@
 // "" GL Type Definitions (as initial beliefs) 
 
 // Candidate status values
-gl_status(proposed).
-gl_status(validated).
-gl_status(assessed).
-gl_status(accepted_by_agent).
-gl_status(rejected_by_agent).
-gl_status(invalid).
+gl_status("PROPOSED").
+gl_status("VALIDATED").
+gl_status("ASSESSED").
+gl_status("ACCEPTED_BY_AGENT").
+gl_status("REJECTED_BY_AGENT").
+gl_status("INVALID").
+gl_status("ESCALATED").
 
 // Candidate types
-gl_candidate_type(candidate_answer).
-gl_candidate_type(candidate_belief).
-gl_candidate_type(candidate_plan).
-gl_candidate_type(task_decomposition).
-gl_candidate_type(action_proposal).
-gl_candidate_type(tool_call_proposal).
-gl_candidate_type(grounded_fact).
-gl_candidate_type(memory_use).
-gl_candidate_type(reflection_note).
-gl_candidate_type(explanation).
+gl_candidate_type("CANDIDATE_ANSWER").
+gl_candidate_type("TASK_DECOMPOSITION").
+gl_candidate_type("ACTION_PROPOSAL").
+gl_candidate_type("TOOL_CALL_PROPOSAL").
+gl_candidate_type("GROUNDED_FACT").
+gl_candidate_type("MEMORY_USE").
+gl_candidate_type("REFLECTION_NOTE").
+gl_candidate_type("EXPLANATION").
 
 // Assessment verdicts
-gl_verdict_type(accept).
-gl_verdict_type(reject).
-gl_verdict_type(uncertain).
-gl_verdict_type(needs_evidence).
-gl_verdict_type(needs_human).
-gl_verdict_type(retry).
+gl_verdict_type("ACCEPT").
+gl_verdict_type("REJECT").
+gl_verdict_type("UNCERTAIN").
+gl_verdict_type("NEEDS_EVIDENCE").
+gl_verdict_type("NEEDS_HUMAN").
+gl_verdict_type("RETRY").
 
 // Affordance types
-gl_affordance(answer).
-gl_affordance(classify).
-gl_affordance(summarise).
-gl_affordance(ground_fact).
-gl_affordance(decompose_goal).
-gl_affordance(propose_tool_call).
-gl_affordance(propose_action).
-gl_affordance(retrieve_memory).
-gl_affordance(reflect).
-gl_affordance(critique).
-gl_affordance(assess).
-gl_affordance(explain).
-gl_affordance(escalate).
+gl_affordance("ANSWER").
+gl_affordance("CLASSIFY").
+gl_affordance("SUMMARISE").
+gl_affordance("GROUND_FACT").
+gl_affordance("DECOMPOSE_GOAL").
+gl_affordance("PROPOSE_TOOL_CALL").
+gl_affordance("PROPOSE_ACTION").
+gl_affordance("RETRIEVE_MEMORY").
+gl_affordance("REFLECT").
+gl_affordance("CRITIQUE").
+gl_affordance("ASSESS").
+gl_affordance("EXPLAIN").
+gl_affordance("ESCALATE").
 
 // Outcome types
-gl_outcome_type(success).
-gl_outcome_type(governance_denied).
-gl_outcome_type(governance_escalated).
-gl_outcome_type(provider_failed).
-gl_outcome_type(invalid_output).
+gl_outcome_type("SUCCESS").
+gl_outcome_type("GOVERNANCE_DENIED").
+gl_outcome_type("GOVERNANCE_ESCALATED").
+gl_outcome_type("PROVIDER_FAILED").
+gl_outcome_type("INVALID_OUTPUT").
 
 // "" GL Validation Rules """""""""""""""""""""""""""""""""""""""""
 

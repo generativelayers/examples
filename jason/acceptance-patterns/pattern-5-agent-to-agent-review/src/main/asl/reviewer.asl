@@ -1,4 +1,4 @@
-// Pipeline: +!review_request > +review_pending > !review_decided > send(approve|reject) > ?review_decided
+// Pipeline: +!review_request > !review_decided > .send(approve|reject) > ?review_decided
 /**
  * Pattern 5: Agent-to-Agent Review - Jason (Reviewer)
  *
@@ -10,9 +10,11 @@
 //   See: https://github.com/generativelayers/examples/tree/main/jason/shared
 
 known_food("fruit"). known_food("vegetable"). known_food("grain").
+known_food("dairy"). known_food("protein"). known_food("food").
 
 // DOMAIN MODEL
 review_decided(Cid) :- review_approved(Cid).
+review_decided(Cid) :- review_rejected(Cid).
 
 // ACHIEVEMENT: incoming request > store and deliberate
 +!review_request(Label, Cid)
@@ -36,6 +38,8 @@ review_decided(Cid) :- review_approved(Cid).
 +!review_decided(Cid)
    :  review_pending(Label, Cid) & not known_food(Label)
    <- .send(main, tell, review_rejected(Cid, "not in knowledge base"));
+      +review_rejected(Cid);
+      ?review_decided(Cid);
       .println("[Reviewer] '", Label, "' is unknown > DISAPPROVED").
 
 // RECOVERY

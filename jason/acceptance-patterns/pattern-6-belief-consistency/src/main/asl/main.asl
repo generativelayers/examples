@@ -1,4 +1,4 @@
-// Pipeline: start > !configured > !consistent > !belief_checked
+// Pipeline: start > !banner > !classified > !consistent > !belief_checked | !rejected_candidate
 /**
  * Pattern 6: Belief Consistency - Jason
  *
@@ -9,61 +9,110 @@
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
 //   See: https://github.com/generativelayers/examples/tree/main/jason/shared
 
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 category("apple", "fruit"). category("carrot", "vegetable").
 
-consistent(Rid) :- confirmed(Rid).
-consistent(Rid) :- rejected(Rid).
-consistent(Rid) :- adopted_new(Rid).
+// DOMAIN MODEL
+consistent(Cid) :- confirmed(Cid).
+consistent(Cid) :- rejected(Cid).
+consistent(Cid) :- adopted_new(Cid).
+has_candidate(Cid) :- Cid \== "".
+no_candidate(Cid)  :- Cid == "".
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- !configured(true);
-      gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !consistent(Rid);
-      .stopMAS.
+   <- !banner;
+      gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
+      +binding(Bid);
+      !classified("apple");
+      !shutdown.
 
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- gl.configure("model", M);
-      gl.use_provider(P).
+// ACHIEVEMENT: clean exit
++!shutdown
+   <- .stopMAS.
 
-+!consistent(Rid)
-   :  consistent(Rid)
-   <- .println("Already checked: ", Rid).
+// ACHIEVEMENT: display banner
++!banner
+   :  gl.see(Providers)
+   <- .println("=== Pattern 6: Belief Consistency ===");
+      .println("");
+      .println("[Layer] Available providers: ", Providers).
 
-+!consistent(Rid)
-   :  gl.valid(Rid, true)
-   <- gl.field(Rid, "label", Label);
-      gl.candidate(Rid, Cid);
-      !belief_checked(Rid, "apple", Label, Cid).
+// DECOMPOSITION: classify = call + deliberate
++!classified(Item)
+   :  binding(Bid)
+   <- .concat("Classify: ", Item, ". Return only a label field.", Prompt);
+      gl.call(Bid, "classify", "llm.answer", "ANSWER", Prompt, "label", "", Rid);
+      !consistent(Rid, Item).
 
-+!consistent(Rid)
-   <- gl.candidate(Rid, Cid);
-      gl.reject(Cid);
-      +rejected(Rid);
-      .println("Invalid output - REJECTED").
+// SERENDIPITY: already checked
++!consistent(Rid, Item)
+   :  gl.candidate(Rid, Cid) & consistent(Cid)
+   <- .println("[AGENT] Already checked: ", Rid).
 
-+!belief_checked(Rid, Item, Label, Cid)
+// DECOMPOSITION: admissible > check belief consistency
++!consistent(Rid, Item)
+   :  gl.candidate(Rid, Cid) & gl.decide(Cid, "ADMISSIBLE") & gl.get(Cid, "label", Label)
+   <- !belief_checked(Rid, Cid, Item, Label).
+
+// DECOMPOSITION: not admissible > reject
++!consistent(Rid, Item)
+   :  gl.candidate(Rid, Cid)
+   <- !rejected_candidate(Cid, Rid).
+
+// ACHIEVEMENT: match belief > confirm
++!belief_checked(Rid, Cid, Item, Label)
    :  category(Item, Label)
-   <- gl.accept(Cid);
-      +confirmed(Rid);
-      .println("Matches belief - CONFIRMED").
+   <- gl.accept(Cid, "matches existing belief", _);
+      +confirmed(Cid);
+      .println("Matches belief - CONFIRMED");
+      !print_trace(Rid);
+      .println("=== Demo Complete ===").
 
-+!belief_checked(Rid, Item, Label, Cid)
-   :  category(Item, Existing) & Label \== Existing
-   <- gl.reject(Cid);
-      +rejected(Rid);
-      .println("Contradicts belief - REJECTED").
+// ACHIEVEMENT: contradicts belief > reject
++!belief_checked(Rid, Cid, Item, Label)
+   :  category(Item, Existing) & Existing \== Label
+   <- .concat("contradicts belief: ", Existing, Reason);
+      gl.reject(Cid, Reason, _);
+      +rejected(Cid);
+      .println("Contradicts belief - REJECTED (existing=", Existing, ", output=", Label, ")");
+      !print_trace(Rid);
+      .println("=== Demo Complete ===").
 
-+!belief_checked(Rid, Item, Label, Cid)
+// ACHIEVEMENT: no prior belief > adopt as new knowledge
++!belief_checked(Rid, Cid, Item, Label)
    :  not category(Item, _)
-   <- gl.accept(Cid);
+   <- .concat("no prior belief: ", Label, Reason);
+      gl.accept(Cid, Reason, _);
       +category(Item, Label);
-      +adopted_new(Rid);
-      .println("No prior belief - NEW KNOWLEDGE").
+      +adopted_new(Cid);
+      .println("No prior belief - NEW KNOWLEDGE ADOPTED");
+      !print_trace(Rid);
+      .println("=== Demo Complete ===").
 
--!consistent(Rid)
+// ACHIEVEMENT: reject (actions only) - candidate exists
++!rejected_candidate(Cid, Rid)
+   :  has_candidate(Cid)
+   <- gl.reject(Cid, "failed validation", _);
+      +rejected(Cid);
+      .println("Invalid output - REJECTED");
+      !print_trace(Rid).
+
+// ACHIEVEMENT: reject (actions only) - no candidate
++!rejected_candidate(Cid, Rid)
+   :  no_candidate(Cid) & gl.result(Rid, Outcome)
+   <- +rejected("");
+      .println("Invocation failed - REJECTED (outcome = ", Outcome, ")");
+      !print_trace(Rid).
+
+// ACHIEVEMENT: print trace
++!print_trace(Rid)
+   :  gl.explain(Rid, Trace)
+   <- .println("");
+      .println("[TRACE] ", Trace).
+
+// RECOVERY
+-!consistent(Rid, Item)
+   :  not confirmed(_) & not rejected(_) & not adopted_new(_)
    <- .println("Consistency check FAILED for ", Rid).

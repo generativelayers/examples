@@ -77,14 +77,20 @@ agent Responder extends GLOntology {
         console.println("[Responder] Sent valid response to " + sender);
     }
 
-    // ACHIEVEMENT: invalid -> reject + send failure inform
-    rule +!rejected_candidate(string rid, string cid, string sender) {
-        if (cid ~= "") {
-            gl.reject(cid, "failed validation/deliberation");
-        }
+    // ACHIEVEMENT: invalid -> reject + send failure inform - candidate exists
+    rule +!rejected_candidate(string rid, string cid, string sender) : cid ~= "" {
+        gl.reject(cid, "failed validation/deliberation");
         +rejected(rid, gl.decide(cid));
         +generation_complete(rid, "FAILED");
-        
+        send(inform, sender,
+             gl_generate_response(rid, cid, gl.decide(cid), false));
+        console.println("[Responder] Sent failure response to " + sender);
+    }
+
+    // ACHIEVEMENT: invalid -> reject + send failure inform - no candidate
+    rule +!rejected_candidate(string rid, string cid, string sender) : cid == "" {
+        +rejected(rid, gl.decide(cid));
+        +generation_complete(rid, "FAILED");
         send(inform, sender,
              gl_generate_response(rid, cid, gl.decide(cid), false));
         console.println("[Responder] Sent failure response to " + sender);

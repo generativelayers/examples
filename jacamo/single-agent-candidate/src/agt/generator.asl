@@ -1,16 +1,15 @@
-// Pipeline: start > !artifact_ready > !banner > !configured > !classified(food) > !invoked > !deliberated > accept|reject
+// Pipeline: start > !artifact_ready > !banner > !setup > !classified > !deliberated > !accepted_candidate | !rejected_candidate > !print_trace
 /**
  * Single Agent Candidate - Generative Layer demonstration (JaCaMo).
  *
  * Shows the fundamental Generative Layer flow using CArtAgO artifacts:
- *   artifact_ready > configure > invoke > validate > accept/reject > trace
+ *   artifact_ready > setup > classify > deliberate > accept/reject > trace
  */
-
-// setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
-setting("model", "gpt-oss-120b"). setting("provider", "cerebras").
 
 // DOMAIN MODEL
 classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
+has_candidate(Cid)            :- Cid \== "".
+no_candidate(Cid)             :- Cid == "".
 
 !start.
 
@@ -18,7 +17,7 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 +!start
    <- !artifact_ready;
       !banner;
-      !configured(true);
+      !setup;
       !classified("apple");
       .stopMAS.
 
@@ -29,102 +28,91 @@ classified(Item, Label, Conf) :- accepted(_) & classified(Item, Label, Conf).
 
 // ACHIEVEMENT: display banner (actions only)
 +!banner
-   <- providers(Providers);
+   <- see(Providers);
       .println("=== Generative Layer Single Agent Candidate Demo (JaCaMo) ===");
       .println("");
       .println("[Layer] Available providers: ", Providers).
 
 // ACHIEVEMENT: setup (actions only)
-+!configured(true)
-   :  setting("model", M) & setting("provider", P)
-   <- configure("model", M);
-      use_provider(P).
++!setup
+   <- bind("agent_a", "groq", "llama-3.3-70b-versatile", "", Bid);
+      +binding(Bid).
 
-// DECOMPOSITION: classify = invoke + deliberate
+// DECOMPOSITION: classify = call + deliberate
 +!classified(FoodItem)
+   :  binding(Bid)
    <- .concat("Classify the food item '", FoodItem,
               "'. What category does it belong to? (e.g. fruit, vegetable, grain, dairy, meat). Return label (the category) and confidence (0 to 1).",
               Prompt);
-      invoke("generator", "classify_food", "llm.answer", "ANSWER",
-             Prompt, "label,confidence", Rid);
-      !invoked(Rid).
-
-// DECOMPOSITION: bind rid once > log > deliberate
-+!invoked(Rid)
-   <- !log_invocation(Rid);
+      call(Bid, "classify_food", "llm.answer", "ANSWER", Prompt, "label,confidence", "", Rid);
       !deliberated(Rid).
 
-// ACHIEVEMENT: log invocation result (actions only)
-+!log_invocation(Rid)
-   <- .println("[Layer] resultId  = ", Rid).
-
-// SERENDIPITY: already accepted
+// DECOMPOSITION: handle deliberation based on outcome
 +!deliberated(Rid)
-   :  accepted(Rid)
-   <- .println("[AGENT] Already deliberated: ", Rid).
+   <- candidate(Rid, Cid);
+      !deliberated_candidate(Rid, Cid).
 
-// DECOMPOSITION: bind validity > branch
-+!deliberated(Rid)
-   <- valid(Rid, IsValid);
-      !deliberated_branch(Rid, IsValid).
++!deliberated_candidate(Rid, Cid)
+   :  has_candidate(Cid)
+   <- decide(Cid, Admissibility);
+      !deliberated_decision(Rid, Cid, Admissibility).
 
-// DECOMPOSITION: valid > check admissibility > accept/reject + trace
-+!deliberated_branch(Rid, true)
-   <- admissible(Rid, IsAdmissible);
-      candidate(Rid, Cid);
-      !deliberated_admissible(Rid, Cid, IsAdmissible);
++!deliberated_candidate(Rid, Cid)
+   :  no_candidate(Cid)
+   <- result(Rid, Outcome);
+      !deliberated_decision(Rid, Cid, Outcome).
+
+// DECOMPOSITION: route decision
++!deliberated_decision(Rid, Cid, "ADMISSIBLE")
+   <- !accepted_candidate(Rid, Cid);
       !print_trace(Rid).
 
-// DECOMPOSITION: invalid > reject + trace
-+!deliberated_branch(Rid, false)
-   <- !rejected_candidate("", Rid);
++!deliberated_decision(Rid, Cid, Outcome)
+   <- !rejected_candidate(Cid, Rid, Outcome);
       !print_trace(Rid).
-
-// ACHIEVEMENT: admissible > accept
-+!deliberated_admissible(Rid, Cid, true)
-   <- !accepted_candidate(Rid, Cid).
-
-// ACHIEVEMENT: not admissible > reject
-+!deliberated_admissible(Rid, Cid, false)
-   <- !rejected_candidate(Cid, Rid).
 
 // ACHIEVEMENT: accept (actions only)
 +!accepted_candidate(Rid, Cid)
-   <- field(Rid, "label", Label);
-      field(Rid, "confidence", Confidence);
+   <- get(Cid, "label", Label);
+      get(Cid, "confidence", Confidence);
       .println("");
       .println("[AGENT] Candidate is valid and admissible.");
       .println("[AGENT]   label      = ", Label);
       .println("[AGENT]   confidence = ", Confidence);
-      accept(Cid);
+      accept(Cid, "admissible output", _);
       +accepted(Cid);
       +classified("food", Label, Confidence);
       .println("[AGENT] Candidate ACCEPTED. Belief adopted.").
 
-// ACHIEVEMENT: reject (actions only)
-+!rejected_candidate(Cid, Rid)
-   <- if (Cid \== "") {
-          reject(Cid);
-      };
-      outcome(Rid, Outcome);
+// ACHIEVEMENT: reject (actions only) - candidate exists
++!rejected_candidate(Cid, Rid, Outcome)
+   :  has_candidate(Cid)
+   <- reject(Cid, "failed validation/deliberation", _);
       +rejected(Cid, Outcome);
       .println("");
       .println("[AGENT] Candidate REJECTED.");
       .println("[AGENT]   outcome = ", Outcome).
 
+// ACHIEVEMENT: reject (actions only) - no candidate
++!rejected_candidate(Cid, Rid, Outcome)
+   :  no_candidate(Cid)
+   <- +rejected("", Outcome);
+      .println("");
+      .println("[AGENT] Invocation failed, no candidate.");
+      .println("[AGENT]   outcome = ", Outcome).
+
 // ACHIEVEMENT: print trace (actions only)
 +!print_trace(Rid)
-   <- trace(Rid, TraceId);
+   <- explain(Rid, Trace);
       .println("");
-      .println("[TRACE] traceId = ", TraceId);
+      .println("[TRACE] traceId = ", Trace);
       .println("=== Demo Complete ===").
 
 // RECOVERY
 -!classified(FoodItem)
+   :  not accepted(_)
    <- .println("[AGENT] Classification FAILED for ", FoodItem).
 
--!invoked(Rid)
-   <- .println("[AGENT] Invocation handling FAILED for ", Rid).
-
 -!deliberated(Rid)
+   :  not accepted(_)
    <- .println("[AGENT] Deliberation FAILED for ", Rid).

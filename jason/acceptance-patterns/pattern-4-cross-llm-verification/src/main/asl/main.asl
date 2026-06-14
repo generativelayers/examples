@@ -1,4 +1,4 @@
-// Pipeline: start > !configured_primary > !verified > !cross_checked > !labels_match
+// Pipeline: start > !banner > !classified > !verified > !cross_check > !evaluate_verifier > !match_labels | !rejected_verifier | !rejected_primary
 /**
  * Pattern 4: Cross-LLM Verification - Jason
  *
@@ -9,79 +9,141 @@
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
 //   See: https://github.com/generativelayers/examples/tree/main/jason/shared
 
-// setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
-setting("primary_provider", "cerebras"). setting("primary_model", "gpt-oss-120b").
-setting("verifier_provider", "cerebras"). setting("verifier_model", "gpt-oss-120b").
-attempt_count(0).
-
-verified(Rid) :- cross_checked(Rid).
-verified(Rid) :- rejected(Rid).
+// DOMAIN MODEL
+verified(Cid) :- accepted(Cid).
+verified(Cid) :- rejected(Cid).
+has_candidate(Cid) :- Cid \== "".
+no_candidate(Cid)  :- Cid == "".
 
 !start.
 
+// DECOMPOSITION: start only adopts subgoals
 +!start
-   <- !configured_primary;
-      gl.ask("agent1", "classify", "Classify: apple", Rid);
-      !verified(Rid);
-      .stopMAS.
+   <- !banner;
+      gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
+      +primary_binding(Bid);
+      gl.bind("verifier1", "groq", "llama-3.3-70b-versatile", "", Vbid);
+      +verifier_binding(Vbid);
+      !classified("apple");
+      !shutdown.
 
-+!configured_primary
-   :  setting("primary_model", M) & setting("primary_provider", P)
-   <- gl.configure("model", M);
-      gl.use_provider(P).
+// ACHIEVEMENT: clean exit
++!shutdown
+   <- .stopMAS.
 
-+!configured_verifier
-   :  setting("verifier_model", M) & setting("verifier_provider", P)
-   <- gl.configure("model", M);
-      gl.use_provider(P).
+// ACHIEVEMENT: display banner
++!banner
+   :  gl.see(Providers)
+   <- .println("=== Pattern 4: Cross-LLM Verification ===");
+      .println("");
+      .println("[Layer] Available providers: ", Providers).
 
-+!verified(Rid)
-   :  verified(Rid)
-   <- .println("Already verified: ", Rid).
+// DECOMPOSITION: classify = call + deliberate/verify
++!classified(Item)
+   :  primary_binding(Bid) & verifier_binding(Vbid)
+   <- .concat("Classify: ", Item, ". Return only a label field.", Prompt);
+      gl.call(Bid, "classify", "llm.answer", "ANSWER", Prompt, "label", "", Rid);
+      !verified(Rid, Item, Bid, Vbid).
 
-+!verified(Rid)
-   :  gl.valid(Rid, true)
-   <- ?attempt_count(Count);
-      -+attempt_count(Count + 1);
-      !cross_checked(Rid);
-      ?verified(Rid).
+// SERENDIPITY: already verified
++!verified(Rid, Item, Bid, Vbid)
+   :  gl.candidate(Rid, Cid) & verified(Cid)
+   <- .println("[AGENT] Already verified: ", Rid).
 
-+!verified(Rid)
-   <- gl.candidate(Rid, Cid);
-      gl.reject(Cid);
-      +rejected(Rid);
-      .println("Invalid first output - REJECTED").
+// DECOMPOSITION: admissible > check verifier output
++!verified(Rid, Item, Bid, Vbid)
+   :  gl.candidate(Rid, Cid) & gl.decide(Cid, "ADMISSIBLE") & gl.get(Cid, "label", Label)
+   <- !cross_check(Rid, Cid, Label, Item, Bid, Vbid).
 
-+!cross_checked(Rid)
-   :  gl.valid(Rid, true)
-   <- gl.field(Rid, "label", L1);
-      !configured_verifier;
-      .concat("Verify the classification. Return label only. apple = ", L1, Prompt);
-      gl.ask("agent1", "verify", Prompt, Vrid);
-      gl.field(Vrid, "label", L2);
-      !labels_match(Rid, Vrid, L1, L2).
+// DECOMPOSITION: not admissible > reject
++!verified(Rid, Item, Bid, Vbid)
+   :  gl.candidate(Rid, Cid)
+   <- !rejected_primary(Cid, Rid).
 
-+!labels_match(Rid, Vrid, L1, L2)
-   :  L1 == L2
-   <- gl.candidate(Rid, Cid1);
-      gl.candidate(Vrid, Cid2);
-      gl.accept(Cid1);
-      gl.accept(Cid2);
-      +accepted(Rid);
-      +cross_checked(Rid);
-      .println("Providers agree on '", L1, "' - ACCEPTED").
+// DECOMPOSITION: cross-check with verifier
++!cross_check(Rid, PrimaryCid, PrimaryLabel, Item, Bid, Vbid)
+   <- .concat("Classify this item and return only a label field: ", Item, Prompt);
+      gl.call(Vbid, "verify", "llm.answer", "ANSWER", Prompt, "label", "", Vrid);
+      !evaluate_verifier(Rid, PrimaryCid, PrimaryLabel, Vrid, Item).
 
-+!labels_match(Rid, Vrid, L1, L2)
-   :  L1 \== L2
-   <- gl.candidate(Rid, Cid1);
-      gl.candidate(Vrid, Cid2);
-      gl.reject(Cid1);
-      gl.reject(Cid2);
-      +rejected(Rid);
-      .println("Providers disagree: ", L1, " vs ", L2, " - REJECTED").
+// DECOMPOSITION: verifier admissible > compare labels
++!evaluate_verifier(Rid, PrimaryCid, PrimaryLabel, Vrid, Item)
+   :  gl.candidate(Vrid, VerifierCid) & gl.decide(VerifierCid, "ADMISSIBLE") & gl.get(VerifierCid, "label", VerifierLabel)
+   <- !match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel).
 
--!verified(Rid)
+// DECOMPOSITION: verifier not admissible > reject
++!evaluate_verifier(Rid, PrimaryCid, PrimaryLabel, Vrid, Item)
+   :  gl.candidate(Vrid, VerifierCid)
+   <- !rejected_verifier(PrimaryCid, VerifierCid, Rid, Vrid).
+
+// ACHIEVEMENT: labels match > accept both
++!match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel)
+   :  PrimaryLabel == VerifierLabel
+   <- .concat("cross-LLM match: ", PrimaryLabel, Reason1);
+      .concat("cross-LLM match: ", VerifierLabel, Reason2);
+      gl.accept(PrimaryCid, Reason1, _);
+      gl.accept(VerifierCid, Reason2, _);
+      +accepted(PrimaryCid);
+      +accepted(VerifierCid);
+      .println("[Verifier] label = ", VerifierLabel, " - MATCH - ACCEPTED");
+      !print_trace(Rid);
+      !print_trace(Vrid);
+      .println("=== Demo Complete ===").
+
+// ACHIEVEMENT: labels mismatch > reject both
++!match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel)
+   :  PrimaryLabel \== VerifierLabel
+   <- .concat("cross-LLM mismatch: ", PrimaryLabel, " vs ", VerifierLabel, Reason);
+      gl.reject(PrimaryCid, Reason, _);
+      gl.reject(VerifierCid, Reason, _);
+      +rejected(PrimaryCid);
+      +rejected(VerifierCid);
+      .println("[Verifier] label = ", VerifierLabel, " != ", PrimaryLabel, " - REJECTED");
+      !print_trace(Rid);
+      !print_trace(Vrid);
+      .println("=== Demo Complete ===").
+
+// ACHIEVEMENT: reject primary (candidate exists)
++!rejected_primary(Cid, Rid)
+   :  has_candidate(Cid)
+   <- gl.reject(Cid, "primary validation failed", _);
+      +rejected(Cid);
+      .println("Invalid primary output - REJECTED");
+      !print_trace(Rid).
+
+// ACHIEVEMENT: reject primary (no candidate)
++!rejected_primary(Cid, Rid)
+   :  no_candidate(Cid)
+   <- +rejected("");
+      .println("Primary invocation failed - REJECTED");
+      !print_trace(Rid).
+
+// DECOMPOSITION: reject verifier
++!rejected_verifier(PrimaryCid, VerifierCid, Rid, Vrid)
+   <- !reject_single_cid(PrimaryCid);
+      !reject_single_cid(VerifierCid);
+      .println("Verifier output invalid - REJECTED");
+      !print_trace(Rid);
+      !print_trace(Vrid).
+
+// ACHIEVEMENT: reject single candidate (exists)
++!reject_single_cid(Cid)
+   :  has_candidate(Cid)
+   <- gl.reject(Cid, "verifier validation failed", _);
+      +rejected(Cid).
+
+// ACHIEVEMENT: reject single candidate (none)
++!reject_single_cid(Cid)
+   :  no_candidate(Cid)
+   <- +rejected("").
+
+// ACHIEVEMENT: print trace
++!print_trace(Rid)
+   :  gl.explain(Rid, Trace)
+   <- .println("");
+      .println("[TRACE] ", Trace).
+
+// RECOVERY
+-!verified(Rid, Item, Bid, Vbid)
+   :  not accepted(_) & not rejected(_)
    <- .println("Verification FAILED for ", Rid).
-
--!cross_checked(Rid)
-   <- .println("Cross-check FAILED for ", Rid).
