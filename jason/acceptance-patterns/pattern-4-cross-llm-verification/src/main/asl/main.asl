@@ -69,7 +69,9 @@ no_candidate(Cid)  :- Cid == "".
 // DECOMPOSITION: verifier admissible > compare labels
 +!evaluate_verifier(Rid, PrimaryCid, PrimaryLabel, Vrid, Item)
    :  gl.candidate(Vrid, VerifierCid) & gl.decide(VerifierCid, "ADMISSIBLE") & gl.get(VerifierCid, "label", VerifierLabel)
-   <- !match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel).
+   <- .println("Primary Agent: label = ", PrimaryLabel);
+      .println("Verifier Agent: label = ", VerifierLabel);
+      !match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel).
 
 // DECOMPOSITION: verifier not admissible > reject
 +!evaluate_verifier(Rid, PrimaryCid, PrimaryLabel, Vrid, Item)
@@ -85,7 +87,7 @@ no_candidate(Cid)  :- Cid == "".
       gl.accept(VerifierCid, Reason2, _);
       +accepted(PrimaryCid);
       +accepted(VerifierCid);
-      .println("[Verifier] label = ", VerifierLabel, " - MATCH - ACCEPTED");
+      .println("Result: MATCH - ACCEPTED");
       !print_trace(Rid);
       !print_trace(Vrid);
       .println("=== Demo Complete ===").
@@ -98,7 +100,7 @@ no_candidate(Cid)  :- Cid == "".
       gl.reject(VerifierCid, Reason, _);
       +rejected(PrimaryCid);
       +rejected(VerifierCid);
-      .println("[Verifier] label = ", VerifierLabel, " != ", PrimaryLabel, " - REJECTED");
+      .println("Result: MISMATCH - REJECTED");
       !print_trace(Rid);
       !print_trace(Vrid);
       .println("=== Demo Complete ===").

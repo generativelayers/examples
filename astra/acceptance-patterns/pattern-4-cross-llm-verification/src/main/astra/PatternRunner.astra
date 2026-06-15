@@ -71,6 +71,8 @@ agent PatternRunner {
     // DECOMPOSITION: verifier admissible > compare labels
     rule +!evaluate_verifier(string rid, string primaryCid, string primaryLabel, string vrid, string item) :
             gl.decide(gl.candidate(vrid)) == "ADMISSIBLE" {
+        console.println("Primary Agent: label = " + primaryLabel);
+        console.println("Verifier Agent: label = " + gl.get(gl.candidate(vrid), "label"));
         !match_labels(rid, primaryCid, primaryLabel, vrid, gl.candidate(vrid), gl.get(gl.candidate(vrid), "label"));
     }
 
@@ -85,7 +87,7 @@ agent PatternRunner {
         gl.accept(verifierCid, "cross-LLM match: " + verifierLabel);
         +accepted(primaryCid);
         +accepted(verifierCid);
-        console.println("[Verifier] label = " + verifierLabel + " - MATCH - ACCEPTED");
+        console.println("Result: MATCH - ACCEPTED");
         !print_trace(rid);
         !print_trace(vrid);
         console.println("=== Demo Complete ===");
@@ -97,7 +99,7 @@ agent PatternRunner {
         gl.reject(verifierCid, "cross-LLM mismatch: " + primaryLabel + " vs " + verifierLabel);
         +rejected(primaryCid);
         +rejected(verifierCid);
-        console.println("[Verifier] label = " + verifierLabel + " != " + primaryLabel + " - REJECTED");
+        console.println("Result: MISMATCH - REJECTED");
         !print_trace(rid);
         !print_trace(vrid);
         console.println("=== Demo Complete ===");

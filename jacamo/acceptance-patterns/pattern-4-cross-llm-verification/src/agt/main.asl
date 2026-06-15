@@ -99,6 +99,8 @@ no_candidate(Cid)  :- Cid == "".
 // DECOMPOSITION: route verifier decision
 +!evaluate_verifier_decision(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, "ADMISSIBLE", Item)
    <- get(VerifierCid, "label", VerifierLabel);
+      .println("Primary Agent: label = ", PrimaryLabel);
+      .println("Verifier Agent: label = ", VerifierLabel);
       !match_labels(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, VerifierLabel).
 
 +!evaluate_verifier_decision(Rid, PrimaryCid, PrimaryLabel, Vrid, VerifierCid, Outcome, Item)
@@ -113,7 +115,7 @@ no_candidate(Cid)  :- Cid == "".
       accept(VerifierCid, Reason2, _);
       +accepted(PrimaryCid);
       +accepted(VerifierCid);
-      .println("[Verifier] label = ", VerifierLabel, " - MATCH - ACCEPTED");
+      .println("Result: MATCH - ACCEPTED");
       !print_trace(Rid);
       !print_trace(Vrid);
       .println("=== Demo Complete ===").
@@ -126,7 +128,7 @@ no_candidate(Cid)  :- Cid == "".
       reject(VerifierCid, Reason, _);
       +rejected(PrimaryCid);
       +rejected(VerifierCid);
-      .println("[Verifier] label = ", VerifierLabel, " != ", PrimaryLabel, " - REJECTED");
+      .println("Result: MISMATCH - REJECTED");
       !print_trace(Rid);
       !print_trace(Vrid);
       .println("=== Demo Complete ===").
