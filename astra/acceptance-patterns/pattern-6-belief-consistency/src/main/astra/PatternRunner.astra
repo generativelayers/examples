@@ -69,7 +69,7 @@ agent PatternRunner {
         +confirmed(cid);
         console.println("Matches belief - CONFIRMED");
         console.println("  Accepted candidate: " + cid);
-        console.println("  Accepted label: " + label);
+        console.println("  LLM label: " + label);
         console.println("  Reason: matches existing belief");
         !print_trace(rid);
         console.println("=== Demo Complete ===");
@@ -81,7 +81,7 @@ agent PatternRunner {
         +rejected(cid);
         console.println("Contradicts belief - REJECTED");
         console.println("  Rejected candidate: " + cid);
-        console.println("  Rejected label: " + label);
+        console.println("  LLM label: " + label);
         console.println("  Existing belief: " + existing);
         console.println("  Reason: contradicts existing belief");
         !print_trace(rid);
@@ -95,7 +95,7 @@ agent PatternRunner {
         +adopted_new(cid);
         console.println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
         console.println("  Accepted candidate: " + cid);
-        console.println("  Accepted new label: " + label);
+        console.println("  LLM label: " + label);
         console.println("  Reason: no prior belief existed, category is known");
         !print_trace(rid);
         console.println("=== Demo Complete ===");
@@ -107,7 +107,7 @@ agent PatternRunner {
         +rejected(cid);
         console.println("Invalid category label - REJECTED");
         console.println("  Rejected candidate: " + cid);
-        console.println("  Rejected label: " + label);
+        console.println("  LLM label: " + label);
         console.println("  Reason: category is not one of the allowed classes");
         !print_trace(rid);
         console.println("=== Demo Complete ===");

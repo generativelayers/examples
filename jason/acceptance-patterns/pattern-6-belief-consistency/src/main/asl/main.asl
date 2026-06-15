@@ -68,7 +68,7 @@ no_candidate(Cid)  :- Cid == "".
       +confirmed(Cid);
       .println("Matches belief - CONFIRMED");
       .println("  Accepted candidate: ", Cid);
-      .println("  Accepted label: ", Label);
+      .println("  LLM label: ", Label);
       .println("  Reason: matches existing belief");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
@@ -81,7 +81,7 @@ no_candidate(Cid)  :- Cid == "".
       +rejected(Cid);
       .println("Contradicts belief - REJECTED");
       .println("  Rejected candidate: ", Cid);
-      .println("  Rejected label: ", Label);
+      .println("  LLM label: ", Label);
       .println("  Existing belief: ", Existing);
       .println("  Reason: contradicts existing belief");
       !print_trace(Rid);
@@ -96,7 +96,7 @@ no_candidate(Cid)  :- Cid == "".
       +adopted_new(Cid);
       .println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
       .println("  Accepted candidate: ", Cid);
-      .println("  Accepted new label: ", Label);
+      .println("  LLM label: ", Label);
       .println("  Reason: no prior belief existed, category is known");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
@@ -109,7 +109,7 @@ no_candidate(Cid)  :- Cid == "".
       +rejected(Cid);
       .println("Invalid category label - REJECTED");
       .println("  Rejected candidate: ", Cid);
-      .println("  Rejected label: ", Label);
+      .println("  LLM label: ", Label);
       .println("  Reason: category is not one of the allowed classes");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
