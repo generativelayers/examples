@@ -37,7 +37,7 @@ no_candidate(Cid)  :- Cid == "".
 +!setup
    <- bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
       +primary_binding(Bid);
-      bind("verifier1", "cerebras", "qwen-3-32b", "", Vbid);
+      bind("verifier1", "cerebras", "gpt-oss-120b", "", Vbid);
       +verifier_binding(Vbid).
 
 // DECOMPOSITION: classify = call + deliberate/verify

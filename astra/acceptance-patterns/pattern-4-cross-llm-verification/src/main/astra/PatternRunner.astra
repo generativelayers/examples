@@ -22,7 +22,7 @@ agent PatternRunner {
     rule +!main(list args) {
         !banner();
         +primary_binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
-        +verifier_binding(gl.bind("verifier1", "cerebras", "qwen-3-32b", ""));
+        +verifier_binding(gl.bind("verifier1", "cerebras", "gpt-oss-120b", ""));
         !classified("apple");
         !shutdown();
     }

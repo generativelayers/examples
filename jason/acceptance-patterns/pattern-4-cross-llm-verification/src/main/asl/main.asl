@@ -22,7 +22,7 @@ no_candidate(Cid)  :- Cid == "".
    <- !banner;
       gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
       +primary_binding(Bid);
-      gl.bind("verifier1", "cerebras", "qwen-3-32b", "", Vbid);
+      gl.bind("verifier1", "cerebras", "gpt-oss-120b", "", Vbid);
       +verifier_binding(Vbid);
       !classified("apple");
       !shutdown.
