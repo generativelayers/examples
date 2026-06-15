@@ -23,7 +23,7 @@ no_candidate(Cid)  :- Cid == "".
       !banner;
       bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
       +binding(Bid);
-      !classified("apple");
+      !classified("house");
       !shutdown.
 
 // ACHIEVEMENT: create and focus the GL artifact
@@ -103,17 +103,30 @@ no_candidate(Cid)  :- Cid == "".
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 
-// ACHIEVEMENT: no prior belief > adopt as new knowledge
+// ACHIEVEMENT: no prior belief, but label is a known valid category -> adopt as new knowledge
 +!belief_checked(Rid, Cid, Item, Label)
-   :  not category(Item, _)
-   <- .concat("no prior belief: ", Label, Reason);
+   :  not category(Item, _) & category(_, Label)
+   <- .concat("no prior belief, valid category: ", Label, Reason);
       accept(Cid, Reason, _);
       +category(Item, Label);
       +adopted_new(Cid);
-      .println("No prior belief - NEW KNOWLEDGE ADOPTED");
+      .println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
       .println("  Accepted candidate: ", Cid);
       .println("  Accepted new label: ", Label);
-      .println("  Reason: no prior belief existed");
+      .println("  Reason: no prior belief existed, category is known");
+      !print_trace(Rid);
+      .println("=== Demo Complete ===").
+
+// ACHIEVEMENT: no prior belief, and label is NOT a known valid category -> reject
++!belief_checked(Rid, Cid, Item, Label)
+   :  not category(Item, _)
+   <- .concat("invalid category label: ", Label, Reason);
+      reject(Cid, Reason, _);
+      +rejected(Cid);
+      .println("Invalid category label - REJECTED");
+      .println("  Rejected candidate: ", Cid);
+      .println("  Rejected label: ", Label);
+      .println("  Reason: category is not one of the allowed classes");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 

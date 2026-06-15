@@ -26,7 +26,7 @@ agent PatternRunner {
     rule +!main(list args) {
         !banner();
         +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
-        !classified("apple");
+        !classified("house");
         !shutdown();
     }
 
@@ -88,15 +88,27 @@ agent PatternRunner {
         console.println("=== Demo Complete ===");
     }
 
-    // ACHIEVEMENT: no prior belief > adopt as new knowledge
-    rule +!belief_checked(string rid, string cid, string item, string label) : ~category(item, string any) {
+    // ACHIEVEMENT: no prior belief, but label is a known valid category -> adopt as new knowledge
+    rule +!belief_checked(string rid, string cid, string item, string label) : ~category(item, string any) & category(string _, label) {
         gl.accept(cid, "no prior belief: " + label);
         +category(item, label);
         +adopted_new(cid);
-        console.println("No prior belief - NEW KNOWLEDGE ADOPTED");
+        console.println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
         console.println("  Accepted candidate: " + cid);
         console.println("  Accepted new label: " + label);
-        console.println("  Reason: no prior belief existed");
+        console.println("  Reason: no prior belief existed, category is known");
+        !print_trace(rid);
+        console.println("=== Demo Complete ===");
+    }
+
+    // ACHIEVEMENT: no prior belief, and label is NOT a known valid category -> reject
+    rule +!belief_checked(string rid, string cid, string item, string label) : ~category(item, string any) {
+        gl.reject(cid, "invalid category: " + label);
+        +rejected(cid);
+        console.println("Invalid category label - REJECTED");
+        console.println("  Rejected candidate: " + cid);
+        console.println("  Rejected label: " + label);
+        console.println("  Reason: category is not one of the allowed classes");
         !print_trace(rid);
         console.println("=== Demo Complete ===");
     }
