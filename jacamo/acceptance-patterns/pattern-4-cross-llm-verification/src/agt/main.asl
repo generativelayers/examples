@@ -177,3 +177,16 @@ no_candidate(Cid)  :- Cid == "".
 -!verified(Rid, Item, Bid, Vbid)
    :  not accepted(_) & not rejected(_)
    <- .println("Verification FAILED for ", Rid).
+
+// NOTE: To make verification deterministic, you can configure the temperature parameter.
+// Pass "temperature=0.0" inside the configuration string (4th argument of the bind call):
+//
+// bind("agent1", "groq", "llama-3.3-70b-versatile", "temperature=0.0", Bid);
+// bind("verifier1", "cerebras", "gpt-oss-120b", "temperature=0.0", Vbid);
+//
+// Temperature levels control model randomness:
+// - High Temperature (0.8 to 1.2): Highly creative and random (good for brainstorming/stories).
+// - Low Temperature (default 0.2): Focused and consistent, but minor variations can still occur.
+// - Zero Temperature (0.0): Completely deterministic. The model will select the highest-probability
+//   word at every step, guaranteeing the exact same output every run.
+

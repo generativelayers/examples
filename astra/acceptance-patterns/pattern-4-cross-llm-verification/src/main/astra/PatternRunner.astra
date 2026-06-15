@@ -135,3 +135,16 @@ agent PatternRunner {
         console.println("Verification FAILED for " + rid);
     }
 }
+
+// NOTE: To make verification deterministic, you can configure the temperature parameter.
+// Pass "temperature=0.0" inside the configuration string (4th argument of the bind call):
+//
+// +primary_binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "temperature=0.0"));
+// +verifier_binding(gl.bind("verifier1", "cerebras", "gpt-oss-120b", "temperature=0.0"));
+//
+// Temperature levels control model randomness:
+// - High Temperature (0.8 to 1.2): Highly creative and random (good for brainstorming/stories).
+// - Low Temperature (default 0.2): Focused and consistent, but minor variations can still occur.
+// - Zero Temperature (0.0): Completely deterministic. The model will select the highest-probability
+//   word at every step, guaranteeing the exact same output every run.
+
