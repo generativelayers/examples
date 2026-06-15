@@ -83,6 +83,9 @@ no_candidate(Cid)  :- Cid == "".
    <- accept(Cid, "matches existing belief", _);
       +confirmed(Cid);
       .println("Matches belief - CONFIRMED");
+      .println("  Accepted candidate: ", Cid);
+      .println("  Accepted label: ", Label);
+      .println("  Reason: matches existing belief");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 
@@ -92,7 +95,11 @@ no_candidate(Cid)  :- Cid == "".
    <- .concat("contradicts belief: ", Existing, Reason);
       reject(Cid, Reason, _);
       +rejected(Cid);
-      .println("Contradicts belief - REJECTED (existing=", Existing, ", output=", Label, ")");
+      .println("Contradicts belief - REJECTED");
+      .println("  Rejected candidate: ", Cid);
+      .println("  Rejected label: ", Label);
+      .println("  Existing belief: ", Existing);
+      .println("  Reason: contradicts existing belief");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 
@@ -104,6 +111,9 @@ no_candidate(Cid)  :- Cid == "".
       +category(Item, Label);
       +adopted_new(Cid);
       .println("No prior belief - NEW KNOWLEDGE ADOPTED");
+      .println("  Accepted candidate: ", Cid);
+      .println("  Accepted new label: ", Label);
+      .println("  Reason: no prior belief existed");
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 
@@ -113,6 +123,8 @@ no_candidate(Cid)  :- Cid == "".
    <- reject(Cid, "failed validation", _);
       +rejected(Cid);
       .println("Invalid output - REJECTED");
+      .println("  Rejected candidate: ", Cid);
+      .println("  Reason: failed schema validation");
       !print_trace(Rid).
 
 // ACHIEVEMENT: reject (actions only) - no candidate
