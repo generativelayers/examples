@@ -18,8 +18,12 @@ consensus_reached(true) :- no_consensus(true).
 // DECOMPOSITION: start only adopts subgoals
 +!start
    <- !banner;
-      gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
-      +binding(Bid);
+      gl.bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid1);
+      +binding(1, Bid1);
+      gl.bind("agent2", "cerebras", "gpt-oss-120b", "", Bid2);
+      +binding(2, Bid2);
+      gl.bind("agent3", "groq", "llama-3.3-70b-versatile", "", Bid3);
+      +binding(3, Bid3);
       !classified("tomato");
       !shutdown.
 
@@ -36,10 +40,10 @@ consensus_reached(true) :- no_consensus(true).
 
 // DECOMPOSITION: classify = cast 3 votes + check consensus
 +!classified(Item)
-   :  binding(Bid)
-   <- !vote_cast(1, Bid, Item);
-      !vote_cast(2, Bid, Item);
-      !vote_cast(3, Bid, Item);
+   :  binding(1, Bid1) & binding(2, Bid2) & binding(3, Bid3)
+   <- !vote_cast(1, Bid1, Item);
+      !vote_cast(2, Bid2, Item);
+      !vote_cast(3, Bid3, Item);
       !consensus_reached(true).
 
 // DECOMPOSITION: cast vote

@@ -18,14 +18,18 @@ no_candidate(Cid)  :- Cid == "".
 +!start
    <- !artifact_ready;
       !banner;
-      bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid);
-      +binding(Bid);
+      bind("agent1", "groq", "llama-3.3-70b-versatile", "", Bid1);
+      +binding(1, Bid1);
+      bind("agent2", "cerebras", "gpt-oss-120b", "", Bid2);
+      +binding(2, Bid2);
+      bind("agent3", "groq", "llama-3.3-70b-versatile", "", Bid3);
+      +binding(3, Bid3);
       !classified("tomato");
       !shutdown.
 
 // ACHIEVEMENT: create and focus the GL artifact
 +!artifact_ready
-   <- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
+   		<- makeArtifact("gl", "gl.jacamo.GL", [], GlId);
       focus(GlId).
 
 // ACHIEVEMENT: clean exit
@@ -41,10 +45,10 @@ no_candidate(Cid)  :- Cid == "".
 
 // DECOMPOSITION: classify = cast 3 votes + check consensus
 +!classified(Item)
-   :  binding(Bid)
-   <- !vote_cast(1, Bid, Item);
-      !vote_cast(2, Bid, Item);
-      !vote_cast(3, Bid, Item);
+   :  binding(1, Bid1) & binding(2, Bid2) & binding(3, Bid3)
+   <- !vote_cast(1, Bid1, Item);
+      !vote_cast(2, Bid2, Item);
+      !vote_cast(3, Bid3, Item);
       !consensus_reached(true).
 
 // DECOMPOSITION: cast vote

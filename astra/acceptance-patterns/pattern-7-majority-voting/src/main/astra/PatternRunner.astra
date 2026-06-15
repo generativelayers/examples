@@ -9,7 +9,7 @@ agent PatternRunner {
     module System S;
 
     types governance {
-        formula binding(string);
+        formula binding(int, string);
         formula vote(int, string, string, string);
         formula consensus_label(string);
         formula consensus_reached(boolean);
@@ -22,7 +22,9 @@ agent PatternRunner {
 
     rule +!main(list args) {
         !banner();
-        +binding(gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        +binding(1, gl.bind("agent1", "groq", "llama-3.3-70b-versatile", ""));
+        +binding(2, gl.bind("agent2", "cerebras", "gpt-oss-120b", ""));
+        +binding(3, gl.bind("agent3", "groq", "llama-3.3-70b-versatile", ""));
         !classified("tomato");
         !shutdown();
     }
@@ -40,10 +42,10 @@ agent PatternRunner {
     }
 
     // DECOMPOSITION: classify = cast 3 votes + check consensus
-    rule +!classified(string item) : binding(string bid) {
-        !vote_cast(1, bid, item);
-        !vote_cast(2, bid, item);
-        !vote_cast(3, bid, item);
+    rule +!classified(string item) : binding(1, string bid1) & binding(2, string bid2) & binding(3, string bid3) {
+        !vote_cast(1, bid1, item);
+        !vote_cast(2, bid2, item);
+        !vote_cast(3, bid3, item);
         !consensus_reached(true);
     }
 
