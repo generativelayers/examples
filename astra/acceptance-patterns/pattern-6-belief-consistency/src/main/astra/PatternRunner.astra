@@ -2,7 +2,7 @@
 // Pattern 6: Belief Consistency - ASTRA
 //
 // Compare the LLM candidate with existing beliefs. Confirm matches,
-// reject contradictions, adopt new facts only when no prior belief exists.
+// reject contradictions, and explicitly add new domain facts only when no prior belief exists.
 agent PatternRunner {
     module gl.astra.GL gl;
     module Console console;
@@ -88,12 +88,12 @@ agent PatternRunner {
         console.println("=== Demo Complete ===");
     }
 
-    // ACHIEVEMENT: no prior belief, but label is a known valid category -> adopt as new knowledge
+    // ACHIEVEMENT: no prior belief, but label is a known valid category -> explicitly add new domain fact
     rule +!belief_checked(string rid, string cid, string item, string label) : ~category(item, string any) & category(string _, label) {
         gl.accept(cid, "no prior belief: " + label);
         +category(item, label);
         +adopted_new(cid);
-        console.println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
+        console.println("No prior belief, valid category - NEW DOMAIN BELIEF ADDED");
         console.println("  Accepted candidate: " + cid);
         console.println("  LLM label: " + label);
         console.println("  Reason: no prior belief existed, category is known");
