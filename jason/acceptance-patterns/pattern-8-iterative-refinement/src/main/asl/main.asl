@@ -2,7 +2,7 @@
 /**
  * Pattern 8: Iterative Refinement - Jason
  *
- * Generate, check, refine, and accept only the final validated
+ * Generate, check, refine, and record acceptance only for the final refined
  * candidate. Free-text outputs use the framework's text field.
  */
 
@@ -83,11 +83,11 @@ refined(FinalRid) :- accepted_final(FinalRid).
    :  gl.candidate(FinalRid, FinalCid) & gl.get(FinalCid, "answer", FinalText)
    <- .println("[Revised] ", FinalText).
 
-// ACHIEVEMENT: accept candidate
+// ACHIEVEMENT: record final acceptance
 +!accept_candidate(FinalCid, FinalRid)
    <- gl.accept(FinalCid, "final refined text", _);
       +accepted_final(FinalRid);
-      .println("Final candidate - ACCEPTED").
+      .println("Final candidate - ACCEPTANCE RECORDED").
 
 // ACHIEVEMENT: print trace
 +!print_trace(Rid)
