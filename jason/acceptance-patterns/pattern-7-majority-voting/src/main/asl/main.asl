@@ -2,7 +2,7 @@
 /**
  * Pattern 7: Majority Voting - Jason
  *
- * Collect multiple candidate votes and accept the concrete
+ * Collect multiple candidate votes and record acceptance for the concrete
  * candidates that form a majority.
  */
 
@@ -78,7 +78,7 @@ consensus_reached(true) :- no_consensus(true).
    <- gl.accept(C1, "majority vote", _);
       gl.accept(C2, "majority vote", _);
       +consensus_label(L1);
-      .println("Majority (votes 1 & 2): '", L1, "' - ACCEPTED");
+      .println("Majority (votes 1 & 2): '", L1, "' - ACCEPTANCE RECORDED");
       !print_trace(R1);
       !print_trace(R2);
       !print_trace(R3);
@@ -93,7 +93,7 @@ consensus_reached(true) :- no_consensus(true).
    <- gl.accept(C1, "majority vote", _);
       gl.accept(C3, "majority vote", _);
       +consensus_label(L1);
-      .println("Majority (votes 1 & 3): '", L1, "' - ACCEPTED");
+      .println("Majority (votes 1 & 3): '", L1, "' - ACCEPTANCE RECORDED");
       !print_trace(R1);
       !print_trace(R2);
       !print_trace(R3);
@@ -108,7 +108,7 @@ consensus_reached(true) :- no_consensus(true).
    <- gl.accept(C2, "majority vote", _);
       gl.accept(C3, "majority vote", _);
       +consensus_label(L2);
-      .println("Majority (votes 2 & 3): '", L2, "' - ACCEPTED");
+      .println("Majority (votes 2 & 3): '", L2, "' - ACCEPTANCE RECORDED");
       !print_trace(R1);
       !print_trace(R2);
       !print_trace(R3);
