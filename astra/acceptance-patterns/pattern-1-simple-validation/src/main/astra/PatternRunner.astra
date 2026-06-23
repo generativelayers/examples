@@ -1,7 +1,7 @@
 // Pipeline: main > !classified(food) > !deliberated > accept|reject
 // Pattern 1: Simple Validation - ASTRA
 //
-// The simplest governance pattern: accept valid output, reject invalid.
+// The simplest governance pattern: record acceptance for valid output, reject invalid output.
 // Demonstrates the fundamental decide() context-guard branching.
 agent PatternRunner {
     module gl.astra.GL gl;
@@ -71,7 +71,7 @@ agent PatternRunner {
         gl.accept(cid, "valid classification");
         +accepted(cid);
         +classified("food", gl.get(cid, "label"), gl.get(cid, "confidence"));
-        console.println("[AGENT] Candidate ACCEPTED. Belief adopted.");
+        console.println("[AGENT] Candidate ACCEPTED. Domain belief added explicitly by the agent program.");
     }
 
     // ACHIEVEMENT: reject (actions only)
