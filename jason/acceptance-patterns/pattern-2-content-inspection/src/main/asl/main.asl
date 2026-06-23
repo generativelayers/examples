@@ -3,7 +3,7 @@
  * Pattern 2: Content Inspection - Jason
  *
  * After validation, inspects the LLM output against the agent's
- * own knowledge base. Accepts only if the label is a known category.
+ * own knowledge base. Records acceptance only if the label is a known category.
  */
 
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
