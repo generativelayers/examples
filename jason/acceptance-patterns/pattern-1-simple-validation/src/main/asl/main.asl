@@ -2,7 +2,7 @@
 /**
  * Pattern 1: Simple Validation - Jason
  *
- * The simplest governance pattern: accept valid output, reject invalid.
+ * The simplest governance pattern: record acceptance for valid output, reject invalid output.
  * Demonstrates the fundamental decide() context-guard branching.
  */
 
@@ -70,7 +70,7 @@ no_candidate(Cid)  :- Cid == "".
       gl.accept(Cid, "valid classification", _);
       +accepted(Cid);
       +classified("food", Label, Confidence);
-      .println("[AGENT] Candidate ACCEPTED. Belief adopted.").
+      .println("[AGENT] Candidate ACCEPTED. Domain belief added explicitly by the agent program.").
 
 // ACHIEVEMENT: reject (actions only) - candidate exists
 +!rejected_candidate(Cid, Rid)
