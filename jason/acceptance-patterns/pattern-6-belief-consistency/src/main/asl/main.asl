@@ -3,7 +3,7 @@
  * Pattern 6: Belief Consistency - Jason
  *
  * Compare the LLM candidate with existing beliefs. Confirm matches,
- * reject contradictions, adopt new facts only when no prior belief exists.
+ * reject contradictions, and explicitly add new domain facts only when no prior belief exists.
  */
 
 // Requires: GL ontology beliefs (gl_status, gl_candidate_type, gl_verdict_type, ...)
@@ -87,14 +87,14 @@ no_candidate(Cid)  :- Cid == "".
       !print_trace(Rid);
       .println("=== Demo Complete ===").
 
-// ACHIEVEMENT: no prior belief, but label is a known valid category -> adopt as new knowledge
+// ACHIEVEMENT: no prior belief, but label is a known valid category -> explicitly add new domain fact
 +!belief_checked(Rid, Cid, Item, Label)
    :  not category(Item, _) & category(_, Label)
    <- .concat("no prior belief, valid category: ", Label, Reason);
       gl.accept(Cid, Reason, _);
       +category(Item, Label);
       +adopted_new(Cid);
-      .println("No prior belief, valid category - NEW KNOWLEDGE ADOPTED");
+      .println("No prior belief, valid category - NEW DOMAIN BELIEF ADDED");
       .println("  Accepted candidate: ", Cid);
       .println("  LLM label: ", Label);
       .println("  Reason: no prior belief existed, category is known");
