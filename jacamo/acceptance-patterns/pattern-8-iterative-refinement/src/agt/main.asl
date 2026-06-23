@@ -2,7 +2,7 @@
 /**
  * Pattern 8: Iterative Refinement - JaCaMo
  *
- * Generate, check, refine, and accept only the final validated
+ * Generate, check, refine, and record acceptance only for the final refined
  * candidate. Free-text outputs use the framework's text field.
  */
 
@@ -131,12 +131,12 @@ no_candidate(Cid)  :- Cid == "".
    :  no_candidate(FinalCid)
    <- .println("[Revised] no candidate").
 
-// ACHIEVEMENT: accept candidate
+// ACHIEVEMENT: record final acceptance
 +!accept_candidate(FinalCid, FinalRid)
    :  has_candidate(FinalCid)
    <- accept(FinalCid, "final refined text", _);
       +accepted_final(FinalRid);
-      .println("Final candidate - ACCEPTED").
+      .println("Final candidate - ACCEPTANCE RECORDED").
 
 +!accept_candidate(FinalCid, FinalRid)
    :  no_candidate(FinalCid)
