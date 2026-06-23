@@ -2,7 +2,7 @@
 /**
  * Pattern 8: Iterative Refinement - ASTRA
  *
- * Generate, check, refine, and accept only the final validated
+ * Generate, check, refine, and record acceptance only for the final refined
  * candidate. Free-text outputs use the framework's text field.
  */
 agent PatternRunner {
@@ -77,11 +77,11 @@ agent PatternRunner {
         console.println("[Revised] " + gl.get(gl.candidate(finalRid), "answer"));
     }
 
-    // ACHIEVEMENT: accept candidate
+    // ACHIEVEMENT: record final acceptance
     rule +!accept_candidate(string cid, string finalRid) {
         gl.accept(cid, "final refined text");
         +refined(finalRid);
-        console.println("Final candidate - ACCEPTED");
+        console.println("Final candidate - ACCEPTANCE RECORDED");
     }
 
     // ACHIEVEMENT: print trace
