@@ -1,7 +1,7 @@
 // Pipeline: main > !vote_cast(1..3) > !vote_recorded > !consensus_reached
 // Pattern 7: Majority Voting - ASTRA
 //
-// Collect multiple candidate votes and accept the concrete
+// Collect multiple candidate votes and record acceptance for the concrete
 // candidates that form a majority.
 agent PatternRunner {
     module gl.astra.GL gl;
@@ -81,7 +81,7 @@ agent PatternRunner {
         gl.accept(c1, "majority vote");
         gl.accept(c2, "majority vote");
         +consensus_label(l1);
-        console.println("Majority (votes 1 & 2): '" + l1 + "' - ACCEPTED");
+        console.println("Majority (votes 1 & 2): '" + l1 + "' - ACCEPTANCE RECORDED");
         !print_trace(r1);
         !print_trace(r2);
         !print_trace(r3);
@@ -97,7 +97,7 @@ agent PatternRunner {
         gl.accept(c1, "majority vote");
         gl.accept(c3, "majority vote");
         +consensus_label(l1);
-        console.println("Majority (votes 1 & 3): '" + l1 + "' - ACCEPTED");
+        console.println("Majority (votes 1 & 3): '" + l1 + "' - ACCEPTANCE RECORDED");
         !print_trace(r1);
         !print_trace(r2);
         !print_trace(r3);
@@ -113,7 +113,7 @@ agent PatternRunner {
         gl.accept(c2, "majority vote");
         gl.accept(c3, "majority vote");
         +consensus_label(l2);
-        console.println("Majority (votes 2 & 3): '" + l2 + "' - ACCEPTED");
+        console.println("Majority (votes 2 & 3): '" + l2 + "' - ACCEPTANCE RECORDED");
         !print_trace(r1);
         !print_trace(r2);
         !print_trace(r3);
