@@ -75,7 +75,7 @@ agent PatternRunner {
         !print_trace(rid);
     }
 
-    // REACTIVE: peer approved > adopt belief and accept
+    // REACTIVE: peer approved > record peer approval and GL adoption decision
     rule @message(inform, string sender, review_approved(string cid)) {
         +peer_approved(cid);
         gl.accept(cid, "peer approved");
